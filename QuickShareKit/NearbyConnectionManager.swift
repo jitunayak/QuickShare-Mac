@@ -234,6 +234,13 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	private var mdnsService:NetService?
 	/// Whether this Mac is currently advertising itself on the local network.
 	public private(set) var isVisible=false
+	/// Where incoming files are written. `nil` uses the default Downloads
+	/// folder. The host app points this at a folder the user picked, and is
+	/// responsible for holding any security-scoped access to it.
+	///
+	/// Read when a connection arrives, so a change applies to the next
+	/// transfer rather than one already in flight.
+	public var receivedFilesDirectory:URL?
 	private var activeConnections:[String:InboundNearbyConnection]=[:]
 	private var foundServices:[String:FoundServiceInfo]=[:]
 	private var shareExtensionDelegates:[ShareExtensionDelegate]=[]
@@ -295,7 +302,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 		listener.newConnectionHandler={ [weak self] (connection:NWConnection) in
 			guard let self=self else {return}
 			let id=UUID().uuidString
-			let conn=InboundNearbyConnection(connection: connection, id: id)
+			let conn=InboundNearbyConnection(connection: connection, id: id, destinationDirectory: self.receivedFilesDirectory)
 			self.activeConnections[id]=conn
 			conn.delegate=self
 			conn.start()

@@ -206,8 +206,15 @@ final class TransferCard:LayerBackgroundView{
 
 	static let width:CGFloat=304
 	static let height:CGFloat=78
-	/// So the rounded corners are visible inside the menu.
-	private static let menuInset:CGFloat=5
+	/// The menu adds its own padding around an item's view and, when the view is
+	/// the widest thing in it, sizes itself around it. Insetting the card
+	/// equally on both sides is what keeps the left and right margins looking
+	/// the same instead of the card hanging off one edge.
+	private static let sideInset:CGFloat=7
+	private static let topInset:CGFloat=5
+	/// Matches the card's own left padding, so the text and the × are inset the
+	/// same amount from their respective edges.
+	private static let contentInset:CGFloat=14
 
 	private let progressFill=LayerBackgroundView()
 	private let percentLabel=NSTextField(labelWithString:"")
@@ -222,9 +229,9 @@ final class TransferCard:LayerBackgroundView{
 
 	/// Wraps a card in a menu item.
 	static func menuItem(for display:TransferDisplay, onClose:@escaping ()->Void)->(item:NSMenuItem, card:TransferCard){
-		let container=NSView(frame: NSRect(x: 0, y: 0, width: width+2*menuInset, height: height+2*menuInset))
+		let container=NSView(frame: NSRect(x: 0, y: 0, width: width+2*sideInset, height: height+2*topInset))
 		let card=TransferCard(onClose: onClose)
-		card.frame=NSRect(x: menuInset, y: menuInset, width: width, height: height)
+		card.frame=NSRect(x: sideInset, y: topInset, width: width, height: height)
 		container.addSubview(card)
 		let item=NSMenuItem()
 		item.view=container
@@ -279,7 +286,7 @@ final class TransferCard:LayerBackgroundView{
 			progressFill.topAnchor.constraint(equalTo: topAnchor),
 			progressFill.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-			percentLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+			percentLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: TransferCard.contentInset),
 			percentLabel.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -10),
 			percentLabel.topAnchor.constraint(equalTo: topAnchor, constant: 13),
 
@@ -296,7 +303,7 @@ final class TransferCard:LayerBackgroundView{
 			rateLabel.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -10),
 			rateLabel.topAnchor.constraint(equalTo: detailLabel.bottomAnchor, constant: 3),
 
-			closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+			closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -TransferCard.contentInset),
 			closeButton.centerYAnchor.constraint(equalTo: centerYAnchor),
 			closeButton.widthAnchor.constraint(equalToConstant: 20),
 			closeButton.heightAnchor.constraint(equalToConstant: 20),
@@ -421,9 +428,11 @@ final class TransferProgressController{
 		onStatusChanged?(status)
 	}
 
-	/// "77% · 523 Mbps", dropping the rate until there is a meaningful one.
+	/// The rate alone — "49.6 Mbps" — because that is what you glance at the
+	/// menu bar for while a transfer runs. Before the first sample lands there
+	/// is no rate yet, so it falls back to the percentage rather than sitting
+	/// blank.
 	private func statusText(for transfer:ActiveTransfer)->String{
-		guard let rate=transfer.rateText else {return "\(transfer.percent)%"}
-		return "\(transfer.percent)% · \(rate)"
+		transfer.rateText ?? "\(transfer.percent)%"
 	}
 }

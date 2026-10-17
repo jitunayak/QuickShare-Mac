@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import AppKit
 import ServiceManagement
 import QuickShareKit
 
@@ -44,6 +45,116 @@ enum LoginItem {
 	}
 }
 
+/// The folder received files are written to.
+///
+/// QuickShare is sandboxed, so a folder the user picks has to be remembered as
+/// a security-scoped bookmark and opened for as long as the app runs —
+/// otherwise the write fails at the far end of a transfer, long after the
+/// panel that granted access has closed. Downloads is covered by the sandbox
+/// entitlement, so it works without any of this and is the default.
+enum ReceivedFiles {
+	private static let bookmarkKey="receivedFilesBookmark"
+
+	/// The user's Downloads folder, as a real path (it can be a symlink).
+	static var defaultDirectory:URL {
+		if let url=try? FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true){
+			return url.resolvingSymlinksInPath()
+		}
+		return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+	}
+
+	/// The folder the user picked, or `nil` while received files go to
+	/// Downloads.
+	private(set) static var customDirectory:URL?
+
+	/// Whether received files go somewhere other than Downloads.
+	static var isCustom:Bool {
+		customDirectory != nil
+	}
+
+	/// The folder received files go to. Hand this to the connection manager.
+	static var directory:URL {
+		customDirectory ?? defaultDirectory
+	}
+
+	/// Resolves the saved folder and opens it for writing. Call once at launch,
+	/// before any transfer can be accepted.
+	///
+	/// If the folder has gone away — deleted, renamed, or on a volume that is
+	/// no longer mounted — the folder is forgotten and received files go back to
+	/// Downloads, rather than every transfer failing at the end of the
+	/// handshake.
+	static func restore() {
+		guard let data=defaults.data(forKey: bookmarkKey) else {return}
+		var stale=false
+		guard let url=try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else {
+			NSLog("QuickShare: could not reopen the chosen received-files folder; saving to Downloads instead")
+			defaults.removeObject(forKey: bookmarkKey)
+			return
+		}
+		// The scope has to be open before the folder can be tested, or the test
+		// fails for a folder we are in fact allowed to use.
+		url.startAccessingSecurityScopedResource()
+		guard FileManager.default.isWritableFile(atPath: url.path) else {
+			NSLog("QuickShare: \(url.path) is no longer writable; saving to Downloads instead")
+			url.stopAccessingSecurityScopedResource()
+			defaults.removeObject(forKey: bookmarkKey)
+			return
+		}
+		customDirectory=url
+		if stale, let refreshed=try? bookmarkData(for: url){
+			// The folder moved. Keep using the URL we resolved and point the
+			// stored bookmark at its new location.
+			defaults.set(refreshed, forKey: bookmarkKey)
+		}
+	}
+
+	/// Points received files at `url` and remembers access to it. Throws before
+	/// changing anything if the folder cannot be written to.
+	static func setDirectory(_ url:URL) throws {
+		let data=try bookmarkData(for: url)
+		// The panel that produced this URL has already granted access to it, so
+		// it is writable here even though the scope below is only just opening.
+		guard FileManager.default.isWritableFile(atPath: url.path) else {
+			throw ReceivedFilesError.notWritable(url)
+		}
+		url.startAccessingSecurityScopedResource()
+		// Close the previous folder only once the new one is open.
+		let previous=customDirectory
+		customDirectory=url
+		defaults.set(data, forKey: bookmarkKey)
+		if let previous=previous{
+			previous.stopAccessingSecurityScopedResource()
+		}
+	}
+
+	/// Goes back to the Downloads folder.
+	static func reset() {
+		customDirectory?.stopAccessingSecurityScopedResource()
+		customDirectory=nil
+		defaults.removeObject(forKey: bookmarkKey)
+	}
+
+	enum ReceivedFilesError:LocalizedError {
+		case notWritable(URL)
+
+		var errorDescription:String? {
+			switch self{
+			case .notWritable(let url):
+				return String(format: NSLocalizedString("Pref.ReceivedFilesDenied", value: "QuickShare is not allowed to save files in “%@”. Pick another folder.", comment: ""), url.lastPathComponent)
+			}
+		}
+	}
+
+	private static var defaults:UserDefaults {
+		UserDefaults.standard
+	}
+
+	private static func bookmarkData(for url:URL) throws -> Data {
+		try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+	}
+}
+
 final class AppSettings: ObservableObject {
 	static let shared=AppSettings()
 
@@ -72,17 +183,67 @@ final class AppSettings: ObservableObject {
 		}
 	}
 
+	/// Where files received from other devices are saved.
+	@Published private(set) var receivedFilesDirectory:URL=ReceivedFiles.directory
+
+	/// Set when the last attempt to change the received files folder failed.
+	@Published var receivedFilesError:String?
+
+	/// The received files folder as shown in the preferences window, with the
+	/// home directory shortened to `~`.
+	var receivedFilesDisplayPath:String {
+		let path=receivedFilesDirectory.path
+		let home=FileManager.default.homeDirectoryForCurrentUser.path
+		guard path.hasPrefix(home) else {return path}
+		return "~"+path.dropFirst(home.count)
+	}
+
+	var receivedFilesIsCustom:Bool {
+		ReceivedFiles.isCustom
+	}
+
 	private init(){
 		autoAccept=defaults.bool(forKey: Keys.autoAccept)
 		launchAtLogin=LoginItem.isEnabled
 		// Default to visible: older installs have no stored value.
 		visible=defaults.object(forKey: Keys.visible) as? Bool ?? true
+		applyReceivedFilesDirectory()
 	}
 
 	/// Applies the current visibility preference to the connection manager.
 	/// Call once at launch, after the preference has been read.
 	func applyVisibility(){
 		NearbyConnectionManager.shared.setVisible(visible)
+	}
+
+	/// Restores the saved received-files folder, if any, and hands it to the
+	/// connection manager. Call once at launch.
+	func applyReceivedFilesDirectory(){
+		ReceivedFiles.restore()
+		receivedFilesDirectory=ReceivedFiles.directory
+		NearbyConnectionManager.shared.receivedFilesDirectory=ReceivedFiles.isCustom ? ReceivedFiles.directory : nil
+	}
+
+	/// Points received files at `url`, keeping access to it across launches.
+	func setReceivedFilesDirectory(_ url:URL){
+		do{
+			try ReceivedFiles.setDirectory(url)
+			receivedFilesError=nil
+		}catch{
+			NSLog("QuickShare: could not use \(url.path) for received files: \(error)")
+			receivedFilesError=error.localizedDescription
+			return
+		}
+		receivedFilesDirectory=ReceivedFiles.directory
+		NearbyConnectionManager.shared.receivedFilesDirectory=ReceivedFiles.directory
+	}
+
+	/// Goes back to saving received files in Downloads.
+	func resetReceivedFilesDirectory(){
+		ReceivedFiles.reset()
+		receivedFilesDirectory=ReceivedFiles.directory
+		receivedFilesError=nil
+		NearbyConnectionManager.shared.receivedFilesDirectory=nil
 	}
 }
 
@@ -128,6 +289,10 @@ struct PreferencesView: View {
 
 				Divider()
 
+				receivedFilesSection
+
+				Divider()
+
 				favouritesSection
 
 				Divider()
@@ -142,7 +307,56 @@ struct PreferencesView: View {
 			}
 			.padding(20)
 		}
-		.frame(width: 480, height: 580, alignment: .topLeading)
+		.frame(width: 480, height: 660, alignment: .topLeading)
+	}
+
+	private var receivedFilesSection: some View {
+		VStack(alignment: .leading, spacing: 8){
+			Text(NSLocalizedString("Pref.ReceivedFiles", value: "Received files", comment: ""))
+				.font(.headline)
+			Text(NSLocalizedString("Pref.ReceivedFilesHint", value: "Files sent to this Mac are saved here. Text you receive goes to your clipboard and links open in your browser, so neither is saved as a file.", comment: ""))
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+
+			HStack(spacing: 8){
+				Image(systemName: "folder")
+					.foregroundStyle(.secondary)
+				Text(settings.receivedFilesDisplayPath)
+					.lineLimit(1)
+					.truncationMode(.middle)
+					.help(settings.receivedFilesDirectory.path)
+				Spacer(minLength: 8)
+				if settings.receivedFilesIsCustom{
+					Button(NSLocalizedString("Pref.ReceivedFilesReset", value: "Use Downloads", comment: "")){
+						settings.resetReceivedFilesDirectory()
+					}
+				}
+				Button(NSLocalizedString("Pref.ReceivedFilesChoose", value: "Choose…", comment: "")){
+					chooseReceivedFilesFolder()
+				}
+			}
+
+			if let error=settings.receivedFilesError{
+				Text(error)
+					.font(.footnote)
+					.foregroundStyle(.red)
+					.fixedSize(horizontal: false, vertical: true)
+			}
+		}
+	}
+
+	private func chooseReceivedFilesFolder(){
+		let panel=NSOpenPanel()
+		panel.canChooseFiles=false
+		panel.canChooseDirectories=true
+		panel.canCreateDirectories=true
+		panel.allowsMultipleSelection=false
+		panel.directoryURL=settings.receivedFilesDirectory
+		panel.message=NSLocalizedString("Pref.ReceivedFilesPanelMessage", value: "Choose where to save files sent to this Mac.", comment: "")
+		panel.prompt=NSLocalizedString("Pref.ReceivedFilesPanelPrompt", value: "Save Here", comment: "")
+		guard panel.runModal() == .OK, let url=panel.url else {return}
+		settings.setReceivedFilesDirectory(url)
 	}
 
 	private var favouritesSection: some View {

@@ -23,6 +23,9 @@ class InboundNearbyConnection: NearbyConnection{
 	public var delegate:InboundNearbyConnectionDelegate?
 	private var cipherCommitment:Data?
 	
+	/// Where received files are written. `nil` means the Downloads folder.
+	private let destinationDirectory:URL?
+	
 	private var textPayloadID:Int64=0
 	private var plainTextPayloadIDs:Set<Int64>=[]
 	
@@ -30,7 +33,8 @@ class InboundNearbyConnection: NearbyConnection{
 		case initial, receivedConnectionRequest, sentUkeyServerInit, receivedUkeyClientFinish, sentConnectionResponse, sentPairedKeyResult, receivedPairedKeyResult, waitingForUserConsent, receivingFiles, disconnected
 	}
 	
-	override init(connection: NWConnection, id:String) {
+	init(connection: NWConnection, id:String, destinationDirectory:URL?) {
+		self.destinationDirectory=destinationDirectory
 		super.init(connection: connection, id: id)
 	}
 	
@@ -332,9 +336,14 @@ class InboundNearbyConnection: NearbyConnection{
 		guard frame.hasV1, frame.v1.hasIntroduction else { throw NearbyError.requiredFieldMissing("shareNearbyFrame.v1.introduction") }
 		currentState = .waitingForUserConsent
 		if frame.v1.introduction.fileMetadata.count>0 && frame.v1.introduction.textMetadata.isEmpty{
-			let downloadsDirectory=(try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true)).resolvingSymlinksInPath()
+			let directory:URL
+			if let destinationDirectory=destinationDirectory{
+				directory=destinationDirectory
+			}else{
+				directory=(try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true)).resolvingSymlinksInPath()
+			}
 			for file in frame.v1.introduction.fileMetadata{
-				let dest=makeFileDestinationURL(downloadsDirectory.appendingPathComponent(file.name))
+				let dest=makeFileDestinationURL(directory.appendingPathComponent(file.name))
 				let info=InternalFileInfo(meta: FileMetadata(name: file.name, size: file.size, mimeType: file.mimeType),
 										  payloadID: file.payloadID,
 										  destinationURL: dest)

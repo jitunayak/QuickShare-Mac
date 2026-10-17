@@ -64,8 +64,12 @@ only the Xcode project builds; everything else, including *Send Files to ▸* an
   behind *77% of 266.1 MB*, with the rate in Mbps, the estimated time left, and a
   **×** to dismiss the card. Several transfers — sending and receiving alike — are
   listed at once, with the file currently in flight and its position in the batch
-  (*photo.jpg (2 of 5)*). The menu bar itself shows `77% · 523 Mbps` next to the
-  icon.
+  (*photo.jpg (2 of 5)*). The menu bar itself shows the live rate — `523 Mbps` —
+  next to the icon, so you can watch a transfer without opening anything.
+- **Choose where received files are saved.** Preferences → *Received files* →
+  *Choose…* points QuickShare at any folder; it remembers the choice across
+  launches and falls back to **Downloads** if the folder is later moved or
+  deleted.
 - **QR code** to make Android discover your Mac (handy on Samsung devices, see
   below).
 - **Transfer history.** The menu bar keeps the last **10** transfers (received

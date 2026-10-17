@@ -61,6 +61,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		NearbyConnectionManager.shared.onOutgoingTransferEvent={ [weak self] deviceID, event in
 			self?.handleOutgoingEvent(deviceID: deviceID, event: event)
 		}
+		// Reading the settings also restores the folder received files go to,
+		// which has to happen before anything can be accepted.
 		AppSettings.shared.applyVisibility()
 
 		// Show live progress in the menu bar itself, and keep the transfer cards
@@ -137,8 +139,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let icon=NSImage(named: "MenuBarIcon")
 		icon?.isTemplate=true
 		statusItem?.button?.image=icon
-		// Monospaced digits keep the live percentage and rate from making the
-		// menu bar jitter as the numbers change.
+		// Monospaced digits keep the live transfer rate from making the menu bar
+		// jitter as the numbers change.
 		statusItem?.button?.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
 		statusItem?.button?.toolTip="QuickShare"
 		statusItem?.menu=menu
