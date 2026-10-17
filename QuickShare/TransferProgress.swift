@@ -82,9 +82,9 @@ final class TransferProgressController{
 
 	static let shared=TransferProgressController()
 
-	/// Mirrors the headline percentage into the menu bar, or `nil` when nothing
-	/// is transferring.
-	var onPercentChanged:((Int?)->Void)?
+	/// Mirrors the headline progress into the menu bar — percentage and transfer
+	/// rate — or `nil` when nothing is transferring.
+	var onStatusChanged:((String?)->Void)?
 
 	private var transfers:[String:ActiveTransfer]=[:]
 	/// The panel follows the transfer that started most recently.
@@ -186,7 +186,7 @@ final class TransferProgressController{
 
 	private func hidePanel(){
 		stopRefreshTimer()
-		report(percent: nil)
+		report(status: nil)
 		guard let panel=panel else {return}
 		NSAnimationContext.runAnimationGroup({ context in
 			context.duration=0.25
@@ -228,24 +228,36 @@ final class TransferProgressController{
 		refresh()
 	}
 
-	private var reportedPercent:Int?=nil
+	private var reportedStatus:String?=nil
 
-	private func report(percent:Int?){
-		guard reportedPercent != percent else {return}
-		reportedPercent=percent
-		onPercentChanged?(percent)
+	private func report(status:String?){
+		guard reportedStatus != status else {return}
+		reportedStatus=status
+		onStatusChanged?(status)
 	}
 
 	private func refresh(){
 		guard let id=order.last, let transfer=transfers[id] else {
-			report(percent: nil)
+			report(status: nil)
 			return
 		}
 		titleLabel.stringValue=String(format: transfer.direction.headline, transfer.deviceName)
 		detailLabel.stringValue=transfer.detail
 		progressBar.doubleValue=transfer.fraction
 		statsLabel.stringValue=statsText(for: transfer)
-		report(percent: Int((transfer.fraction*100).rounded()))
+		report(status: statusText(for: transfer))
+	}
+
+	/// The menu bar title: "42% · 8.3 MB/s", dropping the rate until there is a
+	/// meaningful one to show.
+	private func statusText(for transfer:ActiveTransfer)->String{
+		let percent=Int((transfer.fraction*100).rounded())
+		guard transfer.speed>1024 else {return "\(percent)%"}
+		return "\(percent)% · \(rateText(transfer.speed))"
+	}
+
+	private func rateText(_ bytesPerSecond:Double)->String{
+		String(format: NSLocalizedString("Transfer.Rate", value: "%@/s", comment: ""), byteString(Int64(bytesPerSecond)))
 	}
 
 	private func statsText(for transfer:ActiveTransfer)->String{
@@ -253,7 +265,7 @@ final class TransferProgressController{
 		guard transfer.total>0 else {return done}
 		var parts=["\(done) / \(byteString(transfer.total))"]
 		guard transfer.speed>1024 else {return parts.joined(separator: " · ")}
-		parts.append(String(format: NSLocalizedString("Transfer.Rate", value: "%@/s", comment: ""), byteString(Int64(transfer.speed))))
+		parts.append(rateText(transfer.speed))
 		let seconds=Double(transfer.total-transfer.transferred)/transfer.speed
 		if seconds>0.5 && seconds<3600{
 			parts.append(String(format: NSLocalizedString("Transfer.TimeLeft", value: "%@ left", comment: ""), timeString(seconds)))

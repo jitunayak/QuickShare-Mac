@@ -55,9 +55,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		}
 		AppSettings.shared.applyVisibility()
 
-		// Mirror the live percentage into the menu bar, next to the icon.
-		TransferProgressController.shared.onPercentChanged={ [weak self] percent in
-			self?.statusItem?.button?.title=percent.map({" \($0)%"}) ?? ""
+		// Show live progress in the menu bar itself: " 42% · 8.3 MB/s".
+		TransferProgressController.shared.onStatusChanged={ [weak self] status in
+			self?.statusItem?.button?.title=status.map({" \($0)"}) ?? ""
 		}
 	}
 
@@ -119,6 +119,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let icon=NSImage(named: "MenuBarIcon")
 		icon?.isTemplate=true
 		statusItem?.button?.image=icon
+		// Monospaced digits keep the live percentage and rate from making the
+		// menu bar jitter as the numbers change.
+		statusItem?.button?.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
 		statusItem?.button?.toolTip="QuickShare"
 		statusItem?.menu=menu
 		statusItem?.behavior = .removalAllowed
