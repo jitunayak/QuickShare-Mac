@@ -9,6 +9,26 @@ It is built on the public‑domain protocol core from
 leaves out — most importantly a proper **clipboard** story and a **PIN‑free**
 accept flow. See [NOTICE.md](NOTICE.md) for attribution.
 
+## Download
+
+Grab the latest **`QuickShare-<version>.dmg`** from the
+[Releases](../../releases) page, open it, and drag **QuickShare** into
+**Applications**.
+
+The build is ad-hoc signed but **not notarized** (there is no paid Apple
+Developer account behind it), so the first launch is blocked by Gatekeeper:
+
+- **Right-click the app → Open**, then confirm — macOS remembers the choice for
+  later launches.
+- If that still doesn't stick:
+  `xattr -dr com.apple.quarantine /Applications/QuickShare.app`
+
+The prebuilt app is built for **Apple Silicon** and needs macOS 12 or later.
+(On an Intel Mac, build it with Xcode instead — the Command Line Tools cannot
+link Swift for x86_64.) It ships without the Finder **Share extension**, which
+only the Xcode project builds; everything else, including *Send Files to ▸* and
+*Send Clipboard to ▸* in the menu bar, works.
+
 ## What makes it different
 
 | Behaviour | NearDrop | QuickShare |
@@ -63,45 +83,56 @@ Everything lives in the menu bar. There is no dock icon and no main window.
 
 ## Requirements
 
-- macOS 12 or later.
+- macOS 12 or later, on Apple Silicon or Intel.
 - Mac and Android device on the **same Wi‑Fi / LAN**.
-- **Xcode 15 or later** is recommended, and is required for the Finder Share
-  extension and the full asset catalog. The menu bar app itself can be built
-  with only the Command Line Tools — see below.
+- Nothing else, to build the menu bar app — the Command Line Tools are enough.
+  **Xcode** is only needed for the Finder Share extension (its UI is a `.xib`
+  and needs Interface Builder).
 
 ## Building
 
 ```sh
-open QuickShare.xcodeproj
+make            # build build/QuickShare.app
+make run        # build and launch it
+make package    # build + QuickShare-<version>.dmg and .zip in build/
 ```
 
-Select the **QuickShare** scheme and run. Xcode will resolve the Swift package
+`make` runs `scripts/build-app-without-xcode.sh`: it builds the protocol core
+with SwiftPM, compiles the app sources, renders `AppIcon.icns` from the asset
+catalog, and assembles and ad-hoc-signs the bundle. No Interface Builder, no
+asset-catalog compiler and no Xcode project required.
+
+The result is **Apple Silicon only**: the Command Line Tools ship their Swift
+compatibility libraries for arm64 alone, so with them not even a hello-world
+Swift program links for x86_64.
+
+With Xcode installed you can build the project instead. That also builds the
+Finder Share extension, and can produce a universal binary:
+
+```sh
+make xcode      # or: open QuickShare.xcodeproj
+```
+
+Select the **QuickShare** scheme and run; Xcode resolves the Swift package
 dependencies (swift-protobuf, SwiftECC, QRCode) on first build.
 
-Because the app is not notarized/signed with a developer certificate, the first
-launch may be blocked by Gatekeeper — right‑click the app and choose **Open**.
-
-To build just the protocol core (no Xcode required):
+To build just the protocol core (no Xcode, no app):
 
 ```sh
 swift build
 ```
 
-### Building without Xcode
+### Icons
 
-If you only have the Command Line Tools, you can still build a runnable app
-bundle. The menu bar app, its UI, and the protocol core do not need Interface
-Builder:
+The app icon and the menu bar glyph are both generated from
+`scripts/assets/Quickshare.svg` — the official Quick Share logo:
 
 ```sh
-./scripts/build-app-without-xcode.sh
-open build/QuickShare.app
+make icons
 ```
 
-This links against the SwiftPM build of `QuickShareKit` and assembles
-`build/QuickShare.app` by hand. The one thing it leaves out is the Finder
-**Share extension**, whose UI is a `.xib` and therefore needs Xcode's Interface
-Builder. Use the Xcode project if you want the Share extension.
+The app icon is the logo's blue circle; the menu bar gets a monochrome template
+of the arrows, which macOS tints to match a light or dark menu bar.
 
 ## Making your Android device visible
 
@@ -149,13 +180,24 @@ and always sets a title when sending text back.
 ## Repository layout
 
 ```
+Makefile                Build entry points: make app / run / package / icons
 QuickShare.xcodeproj    Xcode project (app + share extension + kit)
 QuickShare/             Menu bar app (AppDelegate, Preferences, History, resources)
 QuickShareKit/          Nearby Share protocol core (send + receive, clipboard)
 ShareExtension/         macOS Share extension used for "share files to Android"
-scripts/                Helper scripts (no-Xcode app build)
+scripts/                Build, icon and packaging scripts (see below)
 docs/PROTOCOL.md        Notes on how the protocol works
 Package.swift           SwiftPM manifest for building QuickShareKit standalone
+```
+
+The scripts, from the no-Xcode build path:
+
+```
+scripts/build-app-without-xcode.sh   Assemble and sign build/QuickShare.app
+scripts/package-release.sh           Produce the .dmg and .zip in build/
+scripts/make-icons.sh                Rasterise the logo and regenerate the icons
+scripts/make-icons.swift             Crop, mask and size the icon set
+scripts/assets/Quickshare.svg        The official logo the icons come from
 ```
 
 ## Limitations

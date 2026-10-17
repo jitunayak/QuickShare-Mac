@@ -7,26 +7,39 @@
 # core with SwiftPM, compiles the app sources directly, and assembles a
 # runnable .app bundle by hand.
 #
+# It produces an Apple Silicon binary; the Command Line Tools cannot link
+# x86_64 Swift at all. Use the Xcode project for a universal build.
+#
 # What it intentionally leaves out: the Finder Share extension (its UI needs
-# the .xib compiler, which ships only with Xcode) and the compiled asset
-# catalog (the menu bar icon is installed as a plain PNG instead).
+# the .xib compiler, which ships only with Xcode). Everything else, including
+# the app icon, is assembled from the same sources and assets the Xcode project
+# uses.
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD="$ROOT/build"
 APP="$BUILD/QuickShare.app"
-KIT="$ROOT/.build/out/Products/Debug"
 SDK="$(xcrun --show-sdk-path)"
 MIN_MACOS="12.0"
-TARGET="arm64-apple-macos${MIN_MACOS}"
+
+VERSION="${VERSION:-1.0.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
+
+# The Command Line Tools ship their Swift compatibility libraries for arm64
+# only, so even a hello-world Swift program will not link for x86_64 here. Use
+# Xcode (`make xcode`) if you need a universal binary.
+ARCH="$(uname -m)"
+TARGET="${ARCH}-apple-macos${MIN_MACOS}"
 
 echo "==> Building protocol core (QuickShareKit)"
 (cd "$ROOT" && swift build)
+KIT="$(cd "$ROOT" && swift build --show-bin-path)"
 
 echo "==> Compiling Objective-C helper"
 mkdir -p "$BUILD"
 clang -c -fobjc-arc -mmacosx-version-min="$MIN_MACOS" -isysroot "$SDK" \
+	-target "$TARGET" \
 	"$ROOT/QuickShare/NDNotificationCenterHackery.m" \
 	-o "$BUILD/hackery.o"
 
@@ -69,9 +82,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>${VERSION}</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>${BUILD_NUMBER}</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>${MIN_MACOS}</string>
 	<key>LSUIElement</key>
@@ -89,6 +108,23 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+
+echo "==> Building app icon"
+ICONSET="$BUILD/AppIcon.iconset"
+ICON_SRC="$ROOT/QuickShare/Assets.xcassets/AppIcon.appiconset"
+rm -rf "$ICONSET"
+mkdir -p "$ICONSET"
+cp "$ICON_SRC/16.png"    "$ICONSET/icon_16x16.png"
+cp "$ICON_SRC/32.png"    "$ICONSET/icon_16x16@2x.png"
+cp "$ICON_SRC/32 1.png"  "$ICONSET/icon_32x32.png"
+cp "$ICON_SRC/64.png"    "$ICONSET/icon_32x32@2x.png"
+cp "$ICON_SRC/128.png"   "$ICONSET/icon_128x128.png"
+cp "$ICON_SRC/256.png"   "$ICONSET/icon_128x128@2x.png"
+cp "$ICON_SRC/256 1.png" "$ICONSET/icon_256x256.png"
+cp "$ICON_SRC/512.png"   "$ICONSET/icon_256x256@2x.png"
+cp "$ICON_SRC/512 1.png" "$ICONSET/icon_512x512.png"
+cp "$ICON_SRC/1024.png"  "$ICONSET/icon_512x512@2x.png"
+iconutil -c icns -o "$APP/Contents/Resources/AppIcon.icns" "$ICONSET"
 
 echo "==> Copying resources"
 cp "$ROOT/QuickShare/Assets.xcassets/MenuBarIcon.imageset/QuickShare.png"    "$APP/Contents/Resources/MenuBarIcon.png"

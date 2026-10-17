@@ -35,6 +35,20 @@ License, Version 2.0. You may obtain a copy of the license at
 The generated Swift files under `QuickShareKit/Protobuf/` are produced from
 those `.proto` files with [SwiftProtobuf](https://github.com/apple/swift-protobuf).
 
+## Quick Share name and logo (trademark)
+
+The Quick Share name and the blue double-arrow logo are trademarks of Google
+LLC. The logo file in `scripts/assets/Quickshare.svg` is the version published
+on Wikimedia Commons (`File:Quickshare.svg`, credited to Google & Samsung),
+where it is marked as public domain because it consists only of simple
+geometric shapes. `scripts/make-icons.sh` uses it to generate the app icon and
+the menu bar glyph.
+
+The logo is used here only to identify what this app interoperates with, not to
+claim any affiliation with or endorsement by Google. If Google objects to that
+use, remove the generated icons and rebuild with your own artwork — see the
+*Icons* section of the README.
+
 ## Third-party dependencies
 
 - [swift-protobuf](https://github.com/apple/swift-protobuf) — Apache-2.0
