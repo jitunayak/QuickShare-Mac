@@ -109,6 +109,7 @@ class InboundNearbyConnection: NearbyConnection{
 			fileInfo.fileHandle?.write(frame.payloadChunk.body)
 			transferredFiles[id]!.bytesTransferred+=Int64(frame.payloadChunk.body.count)
 			fileInfo.progress?.completedUnitCount=transferredFiles[id]!.bytesTransferred
+			notifyProgress()
 		}else if (frame.payloadChunk.flags & 1)==1{
 			try fileInfo.fileHandle?.close()
 			transferredFiles[id]!.fileHandle=nil
@@ -144,6 +145,7 @@ class InboundNearbyConnection: NearbyConnection{
 			fileInfo.fileHandle?.write(payload)
 			transferredFiles[id]!.bytesTransferred+=Int64(payload.count)
 			fileInfo.progress?.completedUnitCount=transferredFiles[id]!.bytesTransferred
+			notifyProgress()
 			try fileInfo.fileHandle?.close()
 			transferredFiles[id]!.fileHandle=nil
 			fileInfo.progress?.unpublish()
@@ -395,6 +397,9 @@ class InboundNearbyConnection: NearbyConnection{
 				transferredFiles[id]!.progress=progress
 				transferredFiles[id]!.created=true
 			}
+			// Publish the zero point so the receiving side can show a 0% bar
+			// before the first chunk lands.
+			notifyProgress()
 			
 			var frame=Sharing_Nearby_Frame()
 			frame.version = .v1
@@ -422,6 +427,14 @@ class InboundNearbyConnection: NearbyConnection{
 		}
 	}
 	
+	/// Cumulative progress across every file in this transfer, so the receiving
+	/// UI can show one bar even for a multi-file share.
+	private func notifyProgress(){
+		let total=transferredFiles.values.reduce(Int64(0), {$0+$1.meta.size})
+		let transferred=transferredFiles.values.reduce(Int64(0), {$0+$1.bytesTransferred})
+		delegate?.connection(self, didProgressWith: transferred, total: total)
+	}
+	
 	private func deletePartiallyReceivedFiles() throws{
 		for (_, file) in transferredFiles{
 			guard file.created else { continue }
@@ -435,4 +448,5 @@ protocol InboundNearbyConnectionDelegate:AnyObject{
 	func connectionWasTerminated(connection:InboundNearbyConnection, error:Error?)
 	func connection(_ connection:InboundNearbyConnection, didReceiveText text:String, isURL:Bool)
 	func connection(_ connection:InboundNearbyConnection, didReceiveFilesAt url:URL)
+	func connection(_ connection:InboundNearbyConnection, didProgressWith transferred:Int64, total:Int64)
 }

@@ -438,7 +438,7 @@ class OutboundNearbyConnection:NearbyConnection{
 		print("sent file chunk, current transfer: \(String(describing: currentTransfer))")
 		#endif
 		totalBytesSent+=Int64(fileBuffer.count)
-		delegate?.outboundConnection(connection: self, transferProgress: Double(totalBytesSent)/Double(totalBytesToSend))
+		delegate?.outboundConnection(connection: self, transferredBytes: totalBytesSent, totalBytes: totalBytesToSend)
 		
 		if currentTransfer!.currentOffset==currentTransfer!.totalBytes{
 			// Signal end of file (yes, all this for one bit)
@@ -489,7 +489,7 @@ fileprivate struct OutgoingFileTransfer{
 
 protocol OutboundNearbyConnectionDelegate:AnyObject{
 	func outboundConnectionWasEstablished(connection:OutboundNearbyConnection)
-	func outboundConnection(connection:OutboundNearbyConnection, transferProgress:Double)
+	func outboundConnection(connection:OutboundNearbyConnection, transferredBytes:Int64, totalBytes:Int64)
 	func outboundConnectionTransferAccepted(connection:OutboundNearbyConnection)
 	func outboundConnection(connection:OutboundNearbyConnection, failedWithError:Error)
 	func outboundConnectionTransferFinished(connection:OutboundNearbyConnection)

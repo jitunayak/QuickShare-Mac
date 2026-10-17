@@ -27,6 +27,7 @@
 		AA0000000000000000000223 /* History.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010A /* History.swift */; };
 		AA0000000000000000000224 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010B /* main.swift */; };
 		AA0000000000000000000225 /* Favourites.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010C /* Favourites.swift */; };
+		AA0000000000000000000228 /* TransferProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010D /* TransferProgress.swift */; };
 		AA0000000000000000000222 /* NDNotificationCenterHackery.m in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000106 /* NDNotificationCenterHackery.m */; };
 		AA0000000000000000000223 /* libQuickShareKit.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* libQuickShareKit.dylib */; };
 		AA0000000000000000000224 /* libQuickShareKit.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* libQuickShareKit.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -112,6 +113,7 @@
 		AA000000000000000000010A /* History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = History.swift; sourceTree = "<group>"; };
 		AA000000000000000000010B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		AA000000000000000000010C /* Favourites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Favourites.swift; sourceTree = "<group>"; };
+		AA000000000000000000010D /* TransferProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferProgress.swift; sourceTree = "<group>"; };
 		AA0000000000000000000103 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000000000000000000104 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0000000000000000000105 /* NDNotificationCenterHackery.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NDNotificationCenterHackery.h; sourceTree = "<group>"; };
@@ -207,6 +209,7 @@
 				AA0000000000000000000102 /* Preferences.swift */,
 				AA000000000000000000010A /* History.swift */,
 				AA000000000000000000010C /* Favourites.swift */,
+				AA000000000000000000010D /* TransferProgress.swift */,
 				AA0000000000000000000104 /* Assets.xcassets */,
 				AA0000000000000000000105 /* NDNotificationCenterHackery.h */,
 				AA0000000000000000000106 /* NDNotificationCenterHackery.m */,
@@ -450,6 +453,7 @@
 				AA0000000000000000000221 /* Preferences.swift in Sources */,
 				AA0000000000000000000223 /* History.swift in Sources */,
 				AA0000000000000000000225 /* Favourites.swift in Sources */,
+				AA0000000000000000000228 /* TransferProgress.swift in Sources */,
 				AA0000000000000000000222 /* NDNotificationCenterHackery.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

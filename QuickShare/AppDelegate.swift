@@ -54,6 +54,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 			self?.handleOutgoingEvent(deviceID: deviceID, event: event)
 		}
 		AppSettings.shared.applyVisibility()
+
+		// Mirror the live percentage into the menu bar, next to the icon.
+		TransferProgressController.shared.onPercentChanged={ [weak self] percent in
+			self?.statusItem?.button?.title=percent.map({" \($0)%"}) ?? ""
+		}
 	}
 
 	func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -222,6 +227,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	private func handleOutgoingEvent(deviceID:String, event:OutgoingTransferEvent){
 		switch event{
 		case .finished:
+			TransferProgressController.shared.finish(id: deviceID)
 			let pending=pendingOutgoing.removeValue(forKey: deviceID)
 			if let pending=pending{
 				HistoryStore.shared.record(kind: pending.kind, title: pending.title, payload: pending.payload, deviceName: pending.deviceName)
@@ -233,9 +239,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 				postInfoNotification(title: NSLocalizedString("Sent.Title", value: "Sent", comment: ""), body: NSLocalizedString("Sent.Body", value: "The transfer completed successfully.", comment: ""))
 			}
 		case .failed(let error):
+			TransferProgressController.shared.finish(id: deviceID)
 			pendingOutgoing.removeValue(forKey: deviceID)
 			postErrorNotification(errorMessage(for: error))
-		case .established, .accepted, .progress:
+		case .progress(let transferred, let total):
+			guard let pending=pendingOutgoing[deviceID], pending.kind.isFile else {break}
+			TransferProgressController.shared.update(
+				id: deviceID,
+				deviceName: pending.deviceName,
+				detail: pending.title,
+				direction: .sending,
+				transferred: transferred,
+				total: total)
+		case .established, .accepted:
 			break
 		}
 	}
@@ -243,6 +259,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	// MARK: - MainAppDelegate (receiving)
 
 	func obtainUserConsent(for transfer: TransferMetadata, from device: RemoteDeviceInfo) {
+		// Remember the transfer whichever way consent goes: the progress and
+		// completion callbacks are keyed by this id.
+		activeIncomingTransfers[transfer.id]=TransferInfo(device: device, transfer: transfer)
 		// Favourite devices are trusted: accept silently, with no notification.
 		if FavouritesStore.shared.isFavourite(device.name){
 			NearbyConnectionManager.shared.submitUserConsent(transferID: transfer.id, accept: true)
@@ -266,7 +285,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		}
 		let request=UNNotificationRequest(identifier: "transfer_"+transfer.id, content: content, trigger: nil)
 		UNUserNotificationCenter.current().add(request)
-		activeIncomingTransfers[transfer.id]=TransferInfo(device: device, transfer: transfer)
 	}
 
 	private func description(for transfer:TransferMetadata, from device:RemoteDeviceInfo)->String{
@@ -283,12 +301,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	}
 
 	func incomingTransfer(id: String, didFinishWith error: Error?) {
+		TransferProgressController.shared.finish(id: id)
 		guard let transfer=activeIncomingTransfers[id] else {return}
 		defer { UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["transfer_"+id]) }
 		if let error=error{
 			postErrorNotification(errorMessage(for: error), title: String(format: NSLocalizedString("TransferError", value: "Failed to receive from %@", comment: ""), transfer.device.name))
 		}
 		activeIncomingTransfers.removeValue(forKey: id)
+	}
+
+	func incomingTransfer(id: String, didProgressWith transferred: Int64, total: Int64) {
+		guard let info=activeIncomingTransfers[id] else {return}
+		TransferProgressController.shared.update(
+			id: id,
+			deviceName: info.device.name,
+			detail: describeFiles(info.transfer),
+			direction: .receiving,
+			transferred: transferred,
+			total: total)
+	}
+
+	/// "photo.jpg", or "3 files" for a multi-file share.
+	private func describeFiles(_ transfer:TransferMetadata)->String{
+		if transfer.files.count==1{
+			return transfer.files[0].name
+		}
+		return String(format: NSLocalizedString("History.NFiles", value: "%d files", comment: ""), transfer.files.count)
 	}
 
 	func incomingText(_ text: String, isURL: Bool, from device: RemoteDeviceInfo?) {

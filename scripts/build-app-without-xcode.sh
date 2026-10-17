@@ -58,6 +58,7 @@ xcrun swiftc \
 	"$ROOT/QuickShare/Preferences.swift" \
 	"$ROOT/QuickShare/History.swift" \
 	"$ROOT/QuickShare/Favourites.swift" \
+	"$ROOT/QuickShare/TransferProgress.swift" \
 	"$BUILD/hackery.o" \
 	-lQuickShareKit
 
