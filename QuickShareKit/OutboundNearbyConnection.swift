@@ -294,6 +294,10 @@ class OutboundNearbyConnection:NearbyConnection{
 			meta.type = isURL ? .url : .text
 			if isURL{
 				meta.textTitle=URL(string: value)?.host ?? "URL"
+			}else{
+				// Android uses this as the attachment's title and rejects a text
+				// attachment that has none as an unsupported type.
+				meta.textTitle=OutboundNearbyConnection.textTitle(for: value)
 			}
 			meta.size=Int64(value.utf8.count)
 			meta.payloadID=textPayloadID
@@ -461,6 +465,17 @@ class OutboundNearbyConnection:NearbyConnection{
 	
 	private static func sanitizeFileName(name:String)->String{
 		return name.replacingOccurrences(of: "[\\/\\\\?%\\*:\\|\"<>=]", with: "_", options: .regularExpression)
+	}
+	
+	/// A short, single-line title for a plain text share. Android shows it in the
+	/// receiving UI and refuses text attachments that have an empty title.
+	private static func textTitle(for text:String)->String{
+		let firstLine=text.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? text
+		let trimmed=firstLine.trimmingCharacters(in: .whitespaces)
+		if trimmed.isEmpty{
+			return "Text"
+		}
+		return trimmed.count>100 ? String(trimmed.prefix(100))+"…" : trimmed
 	}
 }
 

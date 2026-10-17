@@ -342,23 +342,28 @@ class InboundNearbyConnection: NearbyConnection{
 			DispatchQueue.main.async {
 				self.delegate?.obtainUserConsent(for: metadata, from: self.remoteDeviceInfo!, connection: self)
 			}
-		}else if frame.v1.introduction.textMetadata.count==1{
+		}else if !frame.v1.introduction.textMetadata.isEmpty{
+			// A text/link share. Android labels the string with a type — plain
+			// text, URL, phone number or address — and may also leave it
+			// unclassified (an OTP, for example). Anything that is not a link is
+			// treated as plain text and routed to the clipboard.
 			let meta=frame.v1.introduction.textMetadata[0]
+			for extra in frame.v1.introduction.textMetadata.dropFirst(){
+				plainTextPayloadIDs.insert(extra.payloadID)
+			}
 			if case .url=meta.type{
 				let metadata=TransferMetadata(files: [], id: id, pinCode: nil, textDescription: meta.textTitle)
 				textPayloadID=meta.payloadID
 				DispatchQueue.main.async {
 					self.delegate?.obtainUserConsent(for: metadata, from: self.remoteDeviceInfo!, connection: self)
 				}
-			}else if case .text=meta.type{
+			}else{
 				// The actual text arrives later as a bytes payload; keep the payload
 				// id so we can route it to the clipboard instead of a file.
 				plainTextPayloadIDs.insert(meta.payloadID)
 				DispatchQueue.main.async {
 					self.delegate?.obtainUserConsent(for: TransferMetadata(files: [], id: self.id, pinCode: nil, textDescription: meta.textTitle, isTextMessage: true), from: self.remoteDeviceInfo!, connection: self)
 				}
-			}else{
-				rejectTransfer(with: .unsupportedAttachmentType)
 			}
 		}else{
 			rejectTransfer(with: .unsupportedAttachmentType)

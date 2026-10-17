@@ -8,6 +8,7 @@
 import SwiftUI
 import Combine
 import ServiceManagement
+import QuickShareKit
 
 /// Thin wrapper around `SMAppService` so the app can register itself as a login
 /// item. `SMAppService` requires macOS 13; on older systems the feature is
@@ -49,6 +50,7 @@ final class AppSettings: ObservableObject {
 	private let defaults=UserDefaults.standard
 	private enum Keys{
 		static let autoAccept="autoAccept"
+		static let visible="visible"
 	}
 
 	/// When enabled, incoming transfers are accepted without showing a prompt.
@@ -61,9 +63,26 @@ final class AppSettings: ObservableObject {
 		didSet{ LoginItem.setEnabled(launchAtLogin) }
 	}
 
+	/// When enabled, this Mac advertises itself on the local network so other
+	/// devices can see it and send to it.
+	@Published var visible:Bool{
+		didSet{
+			defaults.set(visible, forKey: Keys.visible)
+			NearbyConnectionManager.shared.setVisible(visible)
+		}
+	}
+
 	private init(){
 		autoAccept=defaults.bool(forKey: Keys.autoAccept)
 		launchAtLogin=LoginItem.isEnabled
+		// Default to visible: older installs have no stored value.
+		visible=defaults.object(forKey: Keys.visible) as? Bool ?? true
+	}
+
+	/// Applies the current visibility preference to the connection manager.
+	/// Call once at launch, after the preference has been read.
+	func applyVisibility(){
+		NearbyConnectionManager.shared.setVisible(visible)
 	}
 }
 
@@ -97,9 +116,18 @@ struct PreferencesView: View {
 
 			Divider()
 
+			Toggle(NSLocalizedString("Pref.VisibleToggle", value: "Visible to other devices", comment: ""), isOn: $settings.visible)
+			Text(settings.visible
+				? NSLocalizedString("Pref.VisibleHint", value: "Other devices on your network can see this Mac and send to it. Turn this off to hide QuickShare from your network.", comment: "")
+				: NSLocalizedString("Pref.HiddenHint", value: "QuickShare is hidden: other devices cannot see this Mac or send to it. You can still send files and the clipboard from this Mac.", comment: ""))
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+
+			Divider()
+
 			VStack(alignment: .leading, spacing: 4){
 				Text(String(format: NSLocalizedString("Pref.DeviceName", value: "Device name: %@", comment: ""), Host.current().localizedName ?? "Mac"))
-				Text(NSLocalizedString("Pref.Visible", value: "This Mac is visible to everyone on your local network.", comment: ""))
 			}
 			.font(.footnote)
 			.foregroundStyle(.secondary)
@@ -107,7 +135,7 @@ struct PreferencesView: View {
 			Spacer(minLength: 0)
 		}
 		.padding(20)
-		.frame(width: 460, height: 360, alignment: .topLeading)
+		.frame(width: 460, height: 430, alignment: .topLeading)
 	}
 }
 

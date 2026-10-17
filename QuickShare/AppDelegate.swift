@@ -13,12 +13,13 @@ import Cocoa
 import UserNotifications
 import QuickShareKit
 
-@main
+@objc(AppDelegate)
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSMenuDelegate, MainAppDelegate {
 	private var statusItem:NSStatusItem?
 	private var clipboardMenu:NSMenu?
 	private var filesMenu:NSMenu?
 	private var historyMenu:NSMenu?
+	private var visibilityMenuItem:NSMenuItem?
 	private var activeIncomingTransfers:[String:TransferInfo]=[:]
 	private var lastTextReceivedFrom:RemoteDeviceInfo?
 	/// Info about an outgoing transfer we started, keyed by device id, so the
@@ -51,7 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		NearbyConnectionManager.shared.onOutgoingTransferEvent={ [weak self] deviceID, event in
 			self?.handleOutgoingEvent(deviceID: deviceID, event: event)
 		}
-		NearbyConnectionManager.shared.becomeVisible()
+		AppSettings.shared.applyVisibility()
 	}
 
 	func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -61,6 +62,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
 	func applicationWillTerminate(_ aNotification: Notification) {
 		UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+		// Withdraw our Bonjour record so we do not linger on other devices.
+		NearbyConnectionManager.shared.setVisible(false)
 	}
 
 	func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -73,9 +76,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let menu=NSMenu()
 		menu.delegate=self
 
-		let visible=NSMenuItem(title: NSLocalizedString("VisibleToEveryone", value: "Visible to everyone on this network", comment: ""), action: nil, keyEquivalent: "")
-		visible.isEnabled=false
+		let visible=NSMenuItem(title: NSLocalizedString("VisibleToEveryone", value: "Visible to everyone on this network", comment: ""), action: #selector(toggleVisibility(_:)), keyEquivalent: "")
+		visible.target=self
+		visible.state=AppSettings.shared.visible ? .on : .off
 		menu.addItem(visible)
+		visibilityMenuItem=visible
 
 		let nameItem=NSMenuItem(title: String(format: NSLocalizedString("DeviceName", value: "This Mac: %@", comment: ""), Host.current().localizedName ?? "Mac"), action: nil, keyEquivalent: "")
 		nameItem.isEnabled=false
@@ -105,7 +110,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		menu.addItem(NSMenuItem(title: NSLocalizedString("Quit", value: "Quit QuickShare", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
 		statusItem=NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-		statusItem?.button?.image=NSImage(named: "MenuBarIcon")
+		let icon=NSImage(named: "MenuBarIcon")
+		icon?.isTemplate=true
+		statusItem?.button?.image=icon
 		statusItem?.button?.toolTip="QuickShare"
 		statusItem?.menu=menu
 		statusItem?.behavior = .removalAllowed
@@ -138,6 +145,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		NearbyConnectionManager.shared.startDeviceDiscovery()
 		rebuildDeviceMenus()
 		rebuildHistoryMenu()
+		updateVisibilityMenuState()
 	}
 
 	func menuDidClose(_ menu: NSMenu) {
@@ -197,6 +205,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
 	@objc private func openPreferences(_ sender:Any?){
 		PreferencesWindowController.shared.show()
+	}
+
+	@objc private func toggleVisibility(_ sender:Any?){
+		AppSettings.shared.visible.toggle()
+		updateVisibilityMenuState()
+	}
+
+	private func updateVisibilityMenuState(){
+		visibilityMenuItem?.state=AppSettings.shared.visible ? .on : .off
 	}
 
 	// MARK: - Outgoing transfer events

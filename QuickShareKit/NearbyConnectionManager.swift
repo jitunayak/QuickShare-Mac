@@ -206,9 +206,11 @@ public enum OutgoingTransferEvent{
 
 public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNearbyConnectionDelegate, OutboundNearbyConnectionDelegate{
 	
-	private var tcpListener:NWListener;
+	private var tcpListener:NWListener?
 	public let endpointID:[UInt8]=generateEndpointID()
 	private var mdnsService:NetService?
+	/// Whether this Mac is currently advertising itself on the local network.
+	public private(set) var isVisible=false
 	private var activeConnections:[String:InboundNearbyConnection]=[:]
 	private var foundServices:[String:FoundServiceInfo]=[:]
 	private var shareExtensionDelegates:[ShareExtensionDelegate]=[]
@@ -232,28 +234,60 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	public static let shared=NearbyConnectionManager()
 	
 	override init() {
-		tcpListener=try! NWListener(using: NWParameters(tls: .none))
 		super.init()
 	}
 	
+	/// Starts advertising this Mac so other devices can find it and send to it.
 	public func becomeVisible(){
-		startTCPListener()
+		setVisible(true)
+	}
+	
+	/// Means: this Mac is online and reachable by other devices on the LAN.
+	public func setVisible(_ visible:Bool){
+		if visible{
+			guard !isVisible else {return}
+			isVisible=true
+			startTCPListener()
+		}else{
+			guard isVisible else {return}
+			isVisible=false
+			stopAdvertising()
+		}
 	}
 	
 	private func startTCPListener(){
-		tcpListener.stateUpdateHandler={(state:NWListener.State) in
+		let listener:NWListener
+		do{
+			listener=try NWListener(using: NWParameters(tls: .none))
+		}catch{
+			isVisible=false
+			return
+		}
+		tcpListener=listener
+		listener.stateUpdateHandler={ [weak self] (state:NWListener.State) in
 			if case .ready = state {
-				self.initMDNS()
+				self?.initMDNS()
 			}
 		}
-		tcpListener.newConnectionHandler={(connection:NWConnection) in
+		listener.newConnectionHandler={ [weak self] (connection:NWConnection) in
+			guard let self=self else {return}
 			let id=UUID().uuidString
 			let conn=InboundNearbyConnection(connection: connection, id: id)
 			self.activeConnections[id]=conn
 			conn.delegate=self
 			conn.start()
 		}
-		tcpListener.start(queue: .global(qos: .utility))
+		listener.start(queue: .global(qos: .utility))
+	}
+	
+	/// Stops accepting new inbound connections and removes our Bonjour record,
+	/// so we disappear from other devices' share sheets. Existing transfers are
+	/// left alone.
+	private func stopAdvertising(){
+		mdnsService?.stop()
+		mdnsService=nil
+		tcpListener?.cancel()
+		tcpListener=nil
 	}
 	
 	private static func generateEndpointID()->[UInt8]{
@@ -266,6 +300,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	}
 	
 	private func initMDNS(){
+		guard isVisible else {return}
 		let nameBytes:[UInt8]=[
 			0x23, // PCP
 			endpointID[0], endpointID[1], endpointID[2], endpointID[3],
@@ -275,7 +310,8 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 		let name=Data(nameBytes).urlSafeBase64EncodedString()
 		let endpointInfo=EndpointInfo(name: Host.current().localizedName ?? "Mac", deviceType: .computer)
 		
-		let port:Int32=Int32(tcpListener.port!.rawValue)
+		guard let rawPort=tcpListener?.port?.rawValue else {return}
+		let port:Int32=Int32(rawPort)
 		mdnsService=NetService(domain: "", type: "_FC9F5ED42C8A._tcp.", name: name, port: port)
 		mdnsService?.delegate=self
 		mdnsService?.setTXTRecord(NetService.data(fromTXTRecord: [
