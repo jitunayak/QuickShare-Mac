@@ -1,0 +1,778 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA0000000000000000000201 /* offline_wire_formats.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000134 /* offline_wire_formats.pb.swift */; };
+		AA0000000000000000000202 /* securemessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000136 /* securemessage.pb.swift */; };
+		AA0000000000000000000203 /* NearbyConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000123 /* NearbyConnection.swift */; };
+		AA0000000000000000000204 /* NearbyConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000120 /* NearbyConnectionManager.swift */; };
+		AA0000000000000000000205 /* sharing_enums.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000131 /* sharing_enums.pb.swift */; };
+		AA0000000000000000000206 /* securegcm.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000135 /* securegcm.pb.swift */; };
+		AA0000000000000000000207 /* OutboundNearbyConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000122 /* OutboundNearbyConnection.swift */; };
+		AA0000000000000000000208 /* device_to_device_messages.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000133 /* device_to_device_messages.pb.swift */; };
+		AA0000000000000000000209 /* InboundNearbyConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000121 /* InboundNearbyConnection.swift */; };
+		AA0000000000000000000210 /* ukey.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000130 /* ukey.pb.swift */; };
+		AA0000000000000000000211 /* wire_format.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000132 /* wire_format.pb.swift */; };
+		AA0000000000000000000212 /* SymmetricKey+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000125 /* SymmetricKey+Extensions.swift */; };
+		AA0000000000000000000213 /* Data+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000124 /* Data+Extensions.swift */; };
+		AA0000000000000000000214 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000711 /* SwiftProtobuf */; };
+		AA0000000000000000000215 /* SwiftECC in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000712 /* SwiftECC */; };
+		AA0000000000000000000220 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000101 /* AppDelegate.swift */; };
+		AA0000000000000000000221 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000102 /* Preferences.swift */; };
+		AA0000000000000000000222 /* NDNotificationCenterHackery.m in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000106 /* NDNotificationCenterHackery.m */; };
+		AA0000000000000000000223 /* libQuickShareKit.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* libQuickShareKit.dylib */; };
+		AA0000000000000000000224 /* libQuickShareKit.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* libQuickShareKit.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		AA0000000000000000000225 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000104 /* Assets.xcassets */; };
+		AA0000000000000000000226 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000109 /* MainMenu.xib */; };
+		AA0000000000000000000227 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000021 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA0000000000000000000230 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000110 /* ShareViewController.swift */; };
+		AA0000000000000000000231 /* QrCodeBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000111 /* QrCodeBackgroundView.swift */; };
+		AA0000000000000000000232 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000114 /* Assets.xcassets */; };
+		AA0000000000000000000233 /* DeviceListCell.xib in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000112 /* DeviceListCell.xib */; };
+		AA0000000000000000000234 /* ShareViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000113 /* ShareViewController.xib */; };
+		AA0000000000000000000235 /* QRCode in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000713 /* QRCode */; };
+		AA0000000000000000000236 /* libQuickShareKit.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* libQuickShareKit.dylib */; };
+		AA0000000000000000000237 /* libQuickShareKit.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* libQuickShareKit.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA0000000000000000000401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000011;
+			remoteInfo = ShareExtension;
+		};
+		AA0000000000000000000402 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000012;
+			remoteInfo = QuickShareKit;
+		};
+		AA0000000000000000000403 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000000000000000000012;
+			remoteInfo = QuickShareKit;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA0000000000000000000314 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AA0000000000000000000227 /* ShareExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000315 /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				AA0000000000000000000224 /* libQuickShareKit.dylib in Embed Libraries */,
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000324 /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				AA0000000000000000000237 /* libQuickShareKit.dylib in Embed Libraries */,
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		AA0000000000000000000020 /* QuickShare.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickShare.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000021 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000022 /* libQuickShareKit.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libQuickShareKit.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000101 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AA0000000000000000000102 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
+		AA0000000000000000000103 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA0000000000000000000104 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA0000000000000000000105 /* NDNotificationCenterHackery.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NDNotificationCenterHackery.h; sourceTree = "<group>"; };
+		AA0000000000000000000106 /* NDNotificationCenterHackery.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NDNotificationCenterHackery.m; sourceTree = "<group>"; };
+		AA0000000000000000000107 /* QuickShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = QuickShare.entitlements; sourceTree = "<group>"; };
+		AA0000000000000000000108 /* QuickShare-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "QuickShare-Bridging-Header.h"; sourceTree = "<group>"; };
+		AA0000000000000000000109 /* MainMenu.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = MainMenu.xib; sourceTree = "<group>"; };
+		AA0000000000000000000110 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		AA0000000000000000000111 /* QrCodeBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrCodeBackgroundView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000112 /* DeviceListCell.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = DeviceListCell.xib; sourceTree = "<group>"; };
+		AA0000000000000000000113 /* ShareViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = ShareViewController.xib; sourceTree = "<group>"; };
+		AA0000000000000000000114 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA0000000000000000000115 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA0000000000000000000116 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
+		AA0000000000000000000120 /* NearbyConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyConnectionManager.swift; sourceTree = "<group>"; };
+		AA0000000000000000000121 /* InboundNearbyConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboundNearbyConnection.swift; sourceTree = "<group>"; };
+		AA0000000000000000000122 /* OutboundNearbyConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutboundNearbyConnection.swift; sourceTree = "<group>"; };
+		AA0000000000000000000123 /* NearbyConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyConnection.swift; sourceTree = "<group>"; };
+		AA0000000000000000000124 /* Data+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Extensions.swift"; sourceTree = "<group>"; };
+		AA0000000000000000000125 /* SymmetricKey+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SymmetricKey+Extensions.swift"; sourceTree = "<group>"; };
+		AA0000000000000000000130 /* ukey.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ukey.pb.swift; sourceTree = "<group>"; };
+		AA0000000000000000000131 /* sharing_enums.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = sharing_enums.pb.swift; sourceTree = "<group>"; };
+		AA0000000000000000000132 /* wire_format.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = wire_format.pb.swift; sourceTree = "<group>"; };
+		AA0000000000000000000133 /* device_to_device_messages.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = device_to_device_messages.pb.swift; sourceTree = "<group>"; };
+		AA0000000000000000000134 /* offline_wire_formats.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = offline_wire_formats.pb.swift; sourceTree = "<group>"; };
+		AA0000000000000000000135 /* securegcm.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = securegcm.pb.swift; sourceTree = "<group>"; };
+		AA0000000000000000000136 /* securemessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = securemessage.pb.swift; sourceTree = "<group>"; };
+		AA0000000000000000000140 /* device_to_device_messages.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = device_to_device_messages.proto; sourceTree = "<group>"; };
+		AA0000000000000000000141 /* offline_wire_formats.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = offline_wire_formats.proto; sourceTree = "<group>"; };
+		AA0000000000000000000142 /* securegcm.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = securegcm.proto; sourceTree = "<group>"; };
+		AA0000000000000000000143 /* securemessage.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = securemessage.proto; sourceTree = "<group>"; };
+		AA0000000000000000000144 /* sharing_enums.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = sharing_enums.proto; sourceTree = "<group>"; };
+		AA0000000000000000000145 /* ukey.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = ukey.proto; sourceTree = "<group>"; };
+		AA0000000000000000000146 /* wire_format.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = wire_format.proto; sourceTree = "<group>"; };
+		AA0000000000000000000147 /* GenerateProtobuf.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = GenerateProtobuf.sh; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA0000000000000000000303 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000214 /* SwiftProtobuf in Frameworks */,
+				AA0000000000000000000215 /* SwiftECC in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000312 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000223 /* libQuickShareKit.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000322 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000235 /* QRCode in Frameworks */,
+				AA0000000000000000000236 /* libQuickShareKit.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA0000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000030 /* QuickShare */,
+				AA0000000000000000000031 /* ShareExtension */,
+				AA0000000000000000000032 /* QuickShareKit */,
+				AA0000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000020 /* QuickShare.app */,
+				AA0000000000000000000021 /* ShareExtension.appex */,
+				AA0000000000000000000022 /* libQuickShareKit.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000030 /* QuickShare */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000101 /* AppDelegate.swift */,
+				AA0000000000000000000102 /* Preferences.swift */,
+				AA0000000000000000000104 /* Assets.xcassets */,
+				AA0000000000000000000105 /* NDNotificationCenterHackery.h */,
+				AA0000000000000000000106 /* NDNotificationCenterHackery.m */,
+				AA0000000000000000000108 /* QuickShare-Bridging-Header.h */,
+				AA0000000000000000000109 /* MainMenu.xib */,
+				AA0000000000000000000103 /* Info.plist */,
+				AA0000000000000000000107 /* QuickShare.entitlements */,
+			);
+			path = QuickShare;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000031 /* ShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000110 /* ShareViewController.swift */,
+				AA0000000000000000000111 /* QrCodeBackgroundView.swift */,
+				AA0000000000000000000112 /* DeviceListCell.xib */,
+				AA0000000000000000000113 /* ShareViewController.xib */,
+				AA0000000000000000000114 /* Assets.xcassets */,
+				AA0000000000000000000115 /* Info.plist */,
+				AA0000000000000000000116 /* ShareExtension.entitlements */,
+			);
+			path = ShareExtension;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000032 /* QuickShareKit */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000033 /* Protobuf */,
+				AA0000000000000000000034 /* ProtobufSource */,
+				AA0000000000000000000120 /* NearbyConnectionManager.swift */,
+				AA0000000000000000000121 /* InboundNearbyConnection.swift */,
+				AA0000000000000000000122 /* OutboundNearbyConnection.swift */,
+				AA0000000000000000000123 /* NearbyConnection.swift */,
+				AA0000000000000000000124 /* Data+Extensions.swift */,
+				AA0000000000000000000125 /* SymmetricKey+Extensions.swift */,
+				AA0000000000000000000147 /* GenerateProtobuf.sh */,
+			);
+			path = QuickShareKit;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000033 /* Protobuf */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000130 /* ukey.pb.swift */,
+				AA0000000000000000000131 /* sharing_enums.pb.swift */,
+				AA0000000000000000000132 /* wire_format.pb.swift */,
+				AA0000000000000000000133 /* device_to_device_messages.pb.swift */,
+				AA0000000000000000000134 /* offline_wire_formats.pb.swift */,
+				AA0000000000000000000135 /* securegcm.pb.swift */,
+				AA0000000000000000000136 /* securemessage.pb.swift */,
+			);
+			path = Protobuf;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000034 /* ProtobufSource */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000140 /* device_to_device_messages.proto */,
+				AA0000000000000000000141 /* offline_wire_formats.proto */,
+				AA0000000000000000000142 /* securegcm.proto */,
+				AA0000000000000000000143 /* securemessage.proto */,
+				AA0000000000000000000144 /* sharing_enums.proto */,
+				AA0000000000000000000145 /* ukey.proto */,
+				AA0000000000000000000146 /* wire_format.proto */,
+			);
+			path = ProtobufSource;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		AA0000000000000000000302 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		AA0000000000000000000010 /* QuickShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000611 /* Build configuration list for PBXNativeTarget "QuickShare" */;
+			buildPhases = (
+				AA0000000000000000000311 /* Sources */,
+				AA0000000000000000000312 /* Frameworks */,
+				AA0000000000000000000313 /* Resources */,
+				AA0000000000000000000314 /* Embed Foundation Extensions */,
+				AA0000000000000000000315 /* Embed Libraries */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0000000000000000000411 /* PBXTargetDependency */,
+				AA0000000000000000000412 /* PBXTargetDependency */,
+			);
+			name = QuickShare;
+			packageProductDependencies = (
+			);
+			productName = QuickShare;
+			productReference = AA0000000000000000000020 /* QuickShare.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AA0000000000000000000011 /* ShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000621 /* Build configuration list for PBXNativeTarget "ShareExtension" */;
+			buildPhases = (
+				AA0000000000000000000321 /* Sources */,
+				AA0000000000000000000322 /* Frameworks */,
+				AA0000000000000000000323 /* Resources */,
+				AA0000000000000000000324 /* Embed Libraries */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA0000000000000000000413 /* PBXTargetDependency */,
+			);
+			name = ShareExtension;
+			productName = ShareExtension;
+			productReference = AA0000000000000000000021 /* ShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		AA0000000000000000000012 /* QuickShareKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000631 /* Build configuration list for PBXNativeTarget "QuickShareKit" */;
+			buildPhases = (
+				AA0000000000000000000302 /* Headers */,
+				AA0000000000000000000301 /* Sources */,
+				AA0000000000000000000303 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QuickShareKit;
+			packageProductDependencies = (
+				AA0000000000000000000711 /* SwiftProtobuf */,
+				AA0000000000000000000712 /* SwiftECC */,
+			);
+			productName = QuickShareKit;
+			productReference = AA0000000000000000000022 /* libQuickShareKit.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA0000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1430;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					AA0000000000000000000010 = {
+						CreatedOnToolsVersion = 14.3;
+					};
+					AA0000000000000000000011 = {
+						CreatedOnToolsVersion = 14.3.1;
+					};
+					AA0000000000000000000012 = {
+						CreatedOnToolsVersion = 14.3.1;
+					};
+				};
+			};
+			buildConfigurationList = AA0000000000000000000600 /* Build configuration list for PBXProject "QuickShare" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = AA0000000000000000000002;
+			packageReferences = (
+				AA0000000000000000000701 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+				AA0000000000000000000702 /* XCRemoteSwiftPackageReference "SwiftECC" */,
+				AA0000000000000000000703 /* XCRemoteSwiftPackageReference "qrcode" */,
+			);
+			productRefGroup = AA0000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA0000000000000000000010 /* QuickShare */,
+				AA0000000000000000000011 /* ShareExtension */,
+				AA0000000000000000000012 /* QuickShareKit */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA0000000000000000000313 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000225 /* Assets.xcassets in Resources */,
+				AA0000000000000000000226 /* MainMenu.xib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000323 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000232 /* Assets.xcassets in Resources */,
+				AA0000000000000000000233 /* DeviceListCell.xib in Resources */,
+				AA0000000000000000000234 /* ShareViewController.xib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA0000000000000000000301 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000201 /* offline_wire_formats.pb.swift in Sources */,
+				AA0000000000000000000202 /* securemessage.pb.swift in Sources */,
+				AA0000000000000000000203 /* NearbyConnection.swift in Sources */,
+				AA0000000000000000000204 /* NearbyConnectionManager.swift in Sources */,
+				AA0000000000000000000205 /* sharing_enums.pb.swift in Sources */,
+				AA0000000000000000000206 /* securegcm.pb.swift in Sources */,
+				AA0000000000000000000207 /* OutboundNearbyConnection.swift in Sources */,
+				AA0000000000000000000208 /* device_to_device_messages.pb.swift in Sources */,
+				AA0000000000000000000209 /* InboundNearbyConnection.swift in Sources */,
+				AA0000000000000000000210 /* ukey.pb.swift in Sources */,
+				AA0000000000000000000211 /* wire_format.pb.swift in Sources */,
+				AA0000000000000000000212 /* SymmetricKey+Extensions.swift in Sources */,
+				AA0000000000000000000213 /* Data+Extensions.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000311 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000220 /* AppDelegate.swift in Sources */,
+				AA0000000000000000000221 /* Preferences.swift in Sources */,
+				AA0000000000000000000222 /* NDNotificationCenterHackery.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000321 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000230 /* ShareViewController.swift in Sources */,
+				AA0000000000000000000231 /* QrCodeBackgroundView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA0000000000000000000411 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000011 /* ShareExtension */;
+			targetProxy = AA0000000000000000000401 /* PBXContainerItemProxy */;
+		};
+		AA0000000000000000000412 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000012 /* QuickShareKit */;
+			targetProxy = AA0000000000000000000402 /* PBXContainerItemProxy */;
+		};
+		AA0000000000000000000413 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA0000000000000000000012 /* QuickShareKit */;
+			targetProxy = AA0000000000000000000403 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AA0000000000000000000501 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AA0000000000000000000502 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		AA0000000000000000000511 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = QuickShare/QuickShare.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = QuickShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QuickShare;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "QuickShare needs access to your local network to send and receive files.";
+				INFOPLIST_KEY_NSMainNibFile = MainMenu;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.quickshare.mac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "QuickShare/QuickShare-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA0000000000000000000512 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = QuickShare/QuickShare.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = QuickShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QuickShare;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "QuickShare needs access to your local network to send and receive files.";
+				INFOPLIST_KEY_NSMainNibFile = MainMenu;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.quickshare.mac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "QuickShare/QuickShare-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AA0000000000000000000521 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QuickShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.quickshare.mac.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA0000000000000000000522 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QuickShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.quickshare.mac.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AA0000000000000000000531 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@executable_path/../Frameworks";
+				DEVELOPMENT_TEAM = "";
+				EXECUTABLE_PREFIX = lib;
+				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA0000000000000000000532 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@executable_path/../Frameworks";
+				DEVELOPMENT_TEAM = "";
+				EXECUTABLE_PREFIX = lib;
+				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA0000000000000000000600 /* Build configuration list for PBXProject "QuickShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000501 /* Debug */,
+				AA0000000000000000000502 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000611 /* Build configuration list for PBXNativeTarget "QuickShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000511 /* Debug */,
+				AA0000000000000000000512 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000621 /* Build configuration list for PBXNativeTarget "ShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000521 /* Debug */,
+				AA0000000000000000000522 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000631 /* Build configuration list for PBXNativeTarget "QuickShareKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000531 /* Debug */,
+				AA0000000000000000000532 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA0000000000000000000701 /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		AA0000000000000000000702 /* XCRemoteSwiftPackageReference "SwiftECC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/leif-ibsen/SwiftECC";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
+		AA0000000000000000000703 /* XCRemoteSwiftPackageReference "qrcode" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/dagronf/qrcode.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 26.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA0000000000000000000711 /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000701 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		AA0000000000000000000712 /* SwiftECC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000702 /* XCRemoteSwiftPackageReference "SwiftECC" */;
+			productName = SwiftECC;
+		};
+		AA0000000000000000000713 /* QRCode */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000703 /* XCRemoteSwiftPackageReference "qrcode" */;
+			productName = QRCode;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = AA0000000000000000000001 /* Project object */;
+}
