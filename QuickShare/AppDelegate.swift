@@ -86,7 +86,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		menu.addItem(filesItem)
 
 		menu.addItem(NSMenuItem.separator())
-		menu.addItem(NSMenuItem(title: NSLocalizedString("Preferences", value: "Preferences…", comment: ""), action: #selector(openPreferences(_:)), keyEquivalent: ","))
+		let prefsItem=NSMenuItem(title: NSLocalizedString("Preferences", value: "Preferences…", comment: ""), action: #selector(openPreferences(_:)), keyEquivalent: ",")
+		prefsItem.target=self
+		menu.addItem(prefsItem)
 		menu.addItem(NSMenuItem.separator())
 		menu.addItem(NSMenuItem(title: NSLocalizedString("Quit", value: "Quit QuickShare", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
@@ -157,6 +159,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		panel.canChooseDirectories=false
 		panel.allowsMultipleSelection=true
 		panel.prompt=NSLocalizedString("Send", comment: "")
+		NSApp.activate(ignoringOtherApps: true)
 		panel.begin { response in
 			guard response == .OK, !panel.urls.isEmpty else {return}
 			NearbyConnectionManager.shared.startOutgoingTransfer(deviceID: deviceID, delegate: self, urls: panel.urls)
