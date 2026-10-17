@@ -35,6 +35,10 @@ class OutboundNearbyConnection:NearbyConnection{
 	public var delegate:OutboundNearbyConnectionDelegate?
 	private var totalBytesToSend:Int64=0
 	private var totalBytesSent:Int64=0
+	/// Files this transfer will move, and how many have already finished, so
+	/// the UI can say "3 of 7".
+	private var totalFiles=0
+	private var filesCompleted=0
 	private var cancelled:Bool=false
 	private var textPayloadID:Int64=0
 	
@@ -338,6 +342,7 @@ class OutboundNearbyConnection:NearbyConnection{
 				queue.append(OutgoingFileTransfer(url: url, payloadID: meta.payloadID, handle: try FileHandle(forReadingFrom: url), totalBytes: meta.size, currentOffset: 0))
 				introduction.v1.introduction.fileMetadata.append(meta)
 				totalBytesToSend+=meta.size
+				totalFiles+=1
 			}
 		}
 		#if DEBUG
@@ -389,6 +394,9 @@ class OutboundNearbyConnection:NearbyConnection{
 			if currentTransfer != nil && currentTransfer?.handle != nil{
 				try currentTransfer?.handle?.close()
 			}
+			if currentTransfer != nil{
+				filesCompleted+=1
+			}
 			if queue.isEmpty{
 				#if DEBUG
 				print("Disconnecting because all files have been transferred")
@@ -438,7 +446,12 @@ class OutboundNearbyConnection:NearbyConnection{
 		print("sent file chunk, current transfer: \(String(describing: currentTransfer))")
 		#endif
 		totalBytesSent+=Int64(fileBuffer.count)
-		delegate?.outboundConnection(connection: self, transferredBytes: totalBytesSent, totalBytes: totalBytesToSend)
+		delegate?.outboundConnection(connection: self, progress: TransferProgress(
+			transferredBytes: totalBytesSent,
+			totalBytes: totalBytesToSend,
+			currentFileName: currentTransfer?.url.lastPathComponent,
+			filesTransferred: filesCompleted,
+			filesTotal: totalFiles))
 		
 		if currentTransfer!.currentOffset==currentTransfer!.totalBytes{
 			// Signal end of file (yes, all this for one bit)
@@ -489,7 +502,7 @@ fileprivate struct OutgoingFileTransfer{
 
 protocol OutboundNearbyConnectionDelegate:AnyObject{
 	func outboundConnectionWasEstablished(connection:OutboundNearbyConnection)
-	func outboundConnection(connection:OutboundNearbyConnection, transferredBytes:Int64, totalBytes:Int64)
+	func outboundConnection(connection:OutboundNearbyConnection, progress:TransferProgress)
 	func outboundConnectionTransferAccepted(connection:OutboundNearbyConnection)
 	func outboundConnection(connection:OutboundNearbyConnection, failedWithError:Error)
 	func outboundConnectionTransferFinished(connection:OutboundNearbyConnection)

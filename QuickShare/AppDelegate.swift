@@ -19,6 +19,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	private var clipboardMenu:NSMenu?
 	private var filesMenu:NSMenu?
 	private var historyMenu:NSMenu?
+	/// The transfer cards currently inserted into the status menu, in order.
+	private var transferItems:[NSMenuItem]=[]
+	private var transferCards:[String:TransferCard]=[:]
+	/// Where the transfer section starts: right after the separator that
+	/// follows the "This Mac" row.
+	private let transferSectionIndex=3
+	private var statusMenuIsOpen=false
+	private var transferRefreshTimer:Timer?
 	private var visibilityMenuItem:NSMenuItem?
 	private var activeIncomingTransfers:[String:TransferInfo]=[:]
 	private var lastTextReceivedFrom:RemoteDeviceInfo?
@@ -55,9 +63,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		}
 		AppSettings.shared.applyVisibility()
 
-		// Show live progress in the menu bar itself: " 42% · 8.3 MB/s".
+		// Show live progress in the menu bar itself, and keep the transfer cards
+		// in the dropdown up to date.
 		TransferProgressController.shared.onStatusChanged={ [weak self] status in
 			self?.statusItem?.button?.title=status.map({" \($0)"}) ?? ""
+		}
+		TransferProgressController.shared.onTransfersChanged={ [weak self] in
+			self?.transfersDidChange()
+		}
+		TransferProgressController.shared.onProgressChanged={ [weak self] in
+			self?.refreshTransferCards()
 		}
 	}
 
@@ -91,6 +106,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let nameItem=NSMenuItem(title: String(format: NSLocalizedString("DeviceName", value: "This Mac: %@", comment: ""), Host.current().localizedName ?? "Mac"), action: nil, keyEquivalent: "")
 		nameItem.isEnabled=false
 		menu.addItem(nameItem)
+
+		// Live transfer cards go in here, between the device name and the
+		// separator, and are inserted on demand.
 		menu.addItem(NSMenuItem.separator())
 
 		clipboardMenu=NSMenu()
@@ -151,14 +169,92 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	}
 
 	func menuWillOpen(_ menu: NSMenu) {
+		statusMenuIsOpen=true
 		NearbyConnectionManager.shared.startDeviceDiscovery()
 		rebuildDeviceMenus()
+		rebuildTransferSection()
 		rebuildHistoryMenu()
 		updateVisibilityMenuState()
+		startTransferRefreshTimer()
 	}
 
 	func menuDidClose(_ menu: NSMenu) {
+		statusMenuIsOpen=false
+		stopTransferRefreshTimer()
 		NearbyConnectionManager.shared.stopDeviceDiscovery()
+	}
+
+	// MARK: - Live transfer cards in the menu
+
+	/// Inserts one card per in-flight transfer directly into the status menu, so
+	/// the dropdown is where progress shows up.
+	///
+	/// Only called while the menu is closed: adding and removing items underneath
+	/// an open menu makes it jump around.
+	private func rebuildTransferSection(){
+		guard let menu=statusItem?.menu else {return}
+		for item in transferItems{
+			menu.removeItem(item)
+		}
+		transferItems.removeAll()
+		transferCards.removeAll()
+
+		let displays=TransferProgressController.shared.transfers
+		guard !displays.isEmpty else {return}
+
+		var index=transferSectionIndex
+		for display in displays{
+			let (item, card)=TransferCard.menuItem(for: display) { [weak self] in
+				guard let self=self else {return}
+				// Close the menu first, so dropping the card is a closed-menu
+				// change rather than one that shifts the open menu.
+				menu.cancelTracking()
+				self.menuDidClose(menu)
+				TransferProgressController.shared.dismiss(id: display.id)
+			}
+			card.update(display)
+			menu.insertItem(item, at: index)
+			index+=1
+			transferItems.append(item)
+			transferCards[display.id]=card
+		}
+		let separator=NSMenuItem.separator()
+		menu.insertItem(separator, at: index)
+		transferItems.append(separator)
+	}
+
+	/// Redraws the cards that are already on screen, without touching the menu
+	/// structure.
+	private func refreshTransferCards(){
+		for display in TransferProgressController.shared.transfers{
+			transferCards[display.id]?.update(display)
+		}
+	}
+
+	private func transfersDidChange(){
+		if statusMenuIsOpen{
+			refreshTransferCards()
+		}else{
+			rebuildTransferSection()
+		}
+	}
+
+	private func startTransferRefreshTimer(){
+		guard transferRefreshTimer==nil else {return}
+		// While the menu is open the rates keep decaying and the time estimates
+		// keep counting down, so refresh them on screen.
+		let timer=Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+			guard let self=self else {return}
+			TransferProgressController.shared.refreshRates()
+			self.refreshTransferCards()
+		}
+		RunLoop.main.add(timer, forMode: .common)
+		transferRefreshTimer=timer
+	}
+
+	private func stopTransferRefreshTimer(){
+		transferRefreshTimer?.invalidate()
+		transferRefreshTimer=nil
 	}
 
 	// MARK: - Sending from this Mac
@@ -245,15 +341,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 			TransferProgressController.shared.finish(id: deviceID)
 			pendingOutgoing.removeValue(forKey: deviceID)
 			postErrorNotification(errorMessage(for: error))
-		case .progress(let transferred, let total):
+		case .progress(let progress):
 			guard let pending=pendingOutgoing[deviceID], pending.kind.isFile else {break}
 			TransferProgressController.shared.update(
 				id: deviceID,
 				deviceName: pending.deviceName,
-				detail: pending.title,
 				direction: .sending,
-				transferred: transferred,
-				total: total)
+				progress: progress)
 		case .established, .accepted:
 			break
 		}
@@ -313,23 +407,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		activeIncomingTransfers.removeValue(forKey: id)
 	}
 
-	func incomingTransfer(id: String, didProgressWith transferred: Int64, total: Int64) {
+	func incomingTransfer(id: String, didProgressWith progress: TransferProgress) {
 		guard let info=activeIncomingTransfers[id] else {return}
 		TransferProgressController.shared.update(
 			id: id,
 			deviceName: info.device.name,
-			detail: describeFiles(info.transfer),
 			direction: .receiving,
-			transferred: transferred,
-			total: total)
-	}
-
-	/// "photo.jpg", or "3 files" for a multi-file share.
-	private func describeFiles(_ transfer:TransferMetadata)->String{
-		if transfer.files.count==1{
-			return transfer.files[0].name
-		}
-		return String(format: NSLocalizedString("History.NFiles", value: "%d files", comment: ""), transfer.files.count)
+			progress: progress)
 	}
 
 	func incomingText(_ text: String, isURL: Bool, from device: RemoteDeviceInfo?) {

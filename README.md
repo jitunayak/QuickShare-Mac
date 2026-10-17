@@ -59,11 +59,13 @@ only the Xcode project builds; everything else, including *Send Files to ▸* an
 - **Send your clipboard to Android.** Menu bar → *Send Clipboard to ▸* and pick a
   discovered device. URLs are advertised to Android as tappable links, other
   text as a text snippet.
-- **Live transfer progress.** While files are moving, a small floating panel
-  shows the progress bar, the running byte count, the transfer rate and the
-  estimated time left. The menu bar mirrors it next to the icon, as
-  `42% · 8.3 MB/s`. Short transfers (under a second or so) never show the
-  panel at all.
+- **Live transfer progress in the menu.** Open the menu bar dropdown while files
+  are moving and each transfer gets its own card: the progress sweeps across it
+  behind *77% of 266.1 MB*, with the rate in Mbps, the estimated time left, and a
+  **×** to dismiss the card. Several transfers — sending and receiving alike — are
+  listed at once, with the file currently in flight and its position in the batch
+  (*photo.jpg (2 of 5)*). The menu bar itself shows `77% · 523 Mbps` next to the
+  icon.
 - **QR code** to make Android discover your Mac (handy on Samsung devices, see
   below).
 - **Transfer history.** The menu bar keeps the last **10** transfers (received

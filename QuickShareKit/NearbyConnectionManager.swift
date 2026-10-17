@@ -176,9 +176,9 @@ struct EndpointInfo{
 public protocol MainAppDelegate:AnyObject{
 	func obtainUserConsent(for transfer:TransferMetadata, from device:RemoteDeviceInfo)
 	func incomingTransfer(id:String, didFinishWith error:Error?)
-	/// Receive progress for a transfer, in bytes. `total` covers every file in
-	/// the transfer, so the numbers stay monotonic across a multi-file share.
-	func incomingTransfer(id:String, didProgressWith transferred:Int64, total:Int64)
+	/// Receive progress for a transfer. `progress.totalBytes` covers every file
+	/// in the transfer, so the numbers stay monotonic across a multi-file share.
+	func incomingTransfer(id:String, didProgressWith progress:TransferProgress)
 	/// A text snippet was accepted and copied to the clipboard.
 	func incomingText(_ text:String, isURL:Bool, from device:RemoteDeviceInfo?)
 	/// A file finished downloading to `url`.
@@ -199,12 +199,30 @@ public protocol ShareExtensionDelegate:AnyObject{
 /// Progress events for an outgoing transfer. The host app observes these through
 /// `NearbyConnectionManager.onOutgoingTransferEvent` so it can post notifications
 /// and record transfer history keyed by device.
+/// Progress for a transfer in flight: how many bytes have moved, and which of
+/// the files is being worked on.
+public struct TransferProgress{
+	public let transferredBytes:Int64
+	public let totalBytes:Int64
+	/// The file currently being moved, if this transfer has any files.
+	public let currentFileName:String?
+	/// Files finished so far, and how many the transfer will move in total.
+	public let filesTransferred:Int
+	public let filesTotal:Int
+
+	public init(transferredBytes:Int64, totalBytes:Int64, currentFileName:String?, filesTransferred:Int, filesTotal:Int){
+		self.transferredBytes=transferredBytes
+		self.totalBytes=totalBytes
+		self.currentFileName=currentFileName
+		self.filesTransferred=filesTransferred
+		self.filesTotal=filesTotal
+	}
+}
+
 public enum OutgoingTransferEvent{
 	case established
 	case accepted
-	/// Bytes pushed so far, and the total this transfer will push. Only file
-	/// transfers report progress; text shares are a single small payload.
-	case progress(transferred:Int64, total:Int64)
+	case progress(TransferProgress)
 	case finished
 	case failed(Error)
 }
@@ -350,9 +368,9 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 		}
 	}
 	
-	func connection(_ connection:InboundNearbyConnection, didProgressWith transferred:Int64, total:Int64){
+	func connection(_ connection:InboundNearbyConnection, didProgressWith progress:TransferProgress){
 		DispatchQueue.main.async {
-			self.mainAppDelegate?.incomingTransfer(id: connection.id, didProgressWith: transferred, total: total)
+			self.mainAppDelegate?.incomingTransfer(id: connection.id, didProgressWith: progress)
 		}
 	}
 	
@@ -593,12 +611,12 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 		}
 	}
 	
-	func outboundConnection(connection: OutboundNearbyConnection, transferredBytes: Int64, totalBytes: Int64) {
-		emitOutgoingEvent(deviceID: connection.id, event: .progress(transferred: transferredBytes, total: totalBytes))
+	func outboundConnection(connection: OutboundNearbyConnection, progress: TransferProgress) {
+		emitOutgoingEvent(deviceID: connection.id, event: .progress(progress))
 		guard let transfer=outgoingTransfers[connection.id], let delegate=transfer.delegate else {return}
-		let progress=totalBytes>0 ? Double(transferredBytes)/Double(totalBytes) : 1
+		let fraction=progress.totalBytes>0 ? Double(progress.transferredBytes)/Double(progress.totalBytes) : 1
 		DispatchQueue.main.async {
-			delegate.transferProgress(progress: progress)
+			delegate.transferProgress(progress: fraction)
 		}
 	}
 	

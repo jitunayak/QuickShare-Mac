@@ -2,11 +2,13 @@
 //  TransferProgress.swift
 //  QuickShare
 //
-//  The floating panel that appears while a file transfer is running: how far
-//  along it is, how fast it is going, and roughly how much longer it will take.
+//  Live transfer state for the menu bar dropdown: one card per transfer, each
+//  showing its progress as a background fill, the bytes moved, the rate and a
+//  close button.
 //
 
 import Cocoa
+import QuickShareKit
 
 enum TransferDirection{
 	case sending, receiving
@@ -22,41 +24,76 @@ enum TransferDirection{
 	}
 }
 
+/// Everything a transfer card needs to draw itself. The controller builds these
+/// so the view stays free of rate maths.
+struct TransferDisplay{
+	let id:String
+	/// "Sending to Pixel 8 Pro"
+	let heading:String
+	/// "IMG_1234.jpg", or "IMG_1234.jpg (2 of 5)"
+	let detail:String
+	let fraction:Double
+	let percent:Int
+	let total:Int64
+	/// "523 Mbps", once there is a meaningful rate.
+	let rate:String?
+	/// "12 s left"
+	let timeLeft:String?
+
+	/// "77% of 266.1 MB"
+	var percentText:String{
+		String(format: NSLocalizedString("Transfer.PercentOf", value: "%d%% of %@", comment: ""), percent, byteString(total))
+	}
+
+	var rateText:String?{
+		guard let rate=rate else {return nil}
+		guard let timeLeft=timeLeft else {return rate}
+		return "\(rate) · \(timeLeft)"
+	}
+}
+
 /// One transfer that is currently in flight.
 private struct ActiveTransfer{
 	let id:String
 	var deviceName:String
-	var detail:String
 	let direction:TransferDirection
 	var transferred:Int64
 	var total:Int64
+	var currentFileName:String?
+	var filesTransferred:Int
+	var filesTotal:Int
 	var speed:Double=0
 	private var lastBytes:Int64
 	private var lastSampleAt=Date()
 
-	init(id:String, deviceName:String, detail:String, direction:TransferDirection, transferred:Int64, total:Int64){
+	init(id:String, deviceName:String, direction:TransferDirection, progress:TransferProgress){
 		self.id=id
 		self.deviceName=deviceName
-		self.detail=detail
 		self.direction=direction
-		self.transferred=transferred
-		self.total=total
-		self.lastBytes=transferred
+		self.transferred=progress.transferredBytes
+		self.total=progress.totalBytes
+		self.currentFileName=progress.currentFileName
+		self.filesTransferred=progress.filesTransferred
+		self.filesTotal=progress.filesTotal
+		self.lastBytes=progress.transferredBytes
 	}
 
-	/// Folds a new byte count in and returns the smoothed transfer rate.
+	/// Folds a new byte count in.
 	///
 	/// Chunks arrive in bursts, so the raw delta between two samples makes the
-	/// number jump around; an exponential average keeps it readable.
-	mutating func sample(transferred:Int64, total:Int64){
+	/// rate jump around; an exponential average keeps it readable.
+	mutating func sample(_ progress:TransferProgress){
 		let now=Date()
 		let elapsed=now.timeIntervalSince(lastSampleAt)
-		self.transferred=transferred
-		self.total=total
-		guard elapsed>=0.25, transferred>=lastBytes else {return}
-		let instant=Double(transferred-lastBytes)/elapsed
+		transferred=progress.transferredBytes
+		total=progress.totalBytes
+		currentFileName=progress.currentFileName
+		filesTransferred=progress.filesTransferred
+		filesTotal=progress.filesTotal
+		guard elapsed>=0.25, progress.transferredBytes>=lastBytes else {return}
+		let instant=Double(progress.transferredBytes-lastBytes)/elapsed
 		speed=speed<=0 ? instant : speed*0.7+instant*0.3
-		lastBytes=transferred
+		lastBytes=progress.transferredBytes
 		lastSampleAt=now
 	}
 
@@ -75,294 +112,318 @@ private struct ActiveTransfer{
 		guard total>0 else {return 0}
 		return min(1, max(0, Double(transferred)/Double(total)))
 	}
+
+	var percent:Int{
+		Int((fraction*100).rounded())
+	}
+
+	/// "IMG_1234.jpg", or "IMG_1234.jpg (2 of 5)" for a multi-file share.
+	var detail:String{
+		guard let name=currentFileName, !name.isEmpty else {
+			guard filesTotal>1 else {return ""}
+			return String(format: NSLocalizedString("History.NFiles", value: "%d files", comment: ""), filesTotal)
+		}
+		guard filesTotal>1 else {return name}
+		return String(format: NSLocalizedString("Transfer.FileNofM", value: "%@ (%d of %d)", comment: ""),
+		              name, min(filesTransferred+1, filesTotal), filesTotal)
+	}
+
+	/// "13.8 MB/s" worth of data, but quoted the way network transfers are.
+	var rateText:String?{
+		guard speed>1024 else {return nil}
+		let mbps=speed*8/1_000_000
+		guard mbps>=100 else {
+			return String(format: NSLocalizedString("Transfer.Mbps", value: "%.1f Mbps", comment: ""), mbps)
+		}
+		return String(format: NSLocalizedString("Transfer.MbpsWhole", value: "%.0f Mbps", comment: ""), mbps)
+	}
+
+	var timeLeftText:String?{
+		guard speed>1024 else {return nil}
+		let seconds=Double(total-transferred)/speed
+		guard seconds>0.5 && seconds<3600 else {return nil}
+		return String(format: NSLocalizedString("Transfer.TimeLeft", value: "%@ left", comment: ""), timeString(seconds))
+	}
+
+	func display()->TransferDisplay{
+		TransferDisplay(id: id,
+		                heading: String(format: direction.headline, deviceName),
+		                detail: detail,
+		                fraction: fraction,
+		                percent: percent,
+		                total: total,
+		                rate: rateText,
+		                timeLeft: timeLeftText)
+	}
 }
 
-/// Owns the panel. Every method is expected to be called on the main thread.
+// MARK: - Formatting
+
+private let byteFormatter:ByteCountFormatter={
+	let formatter=ByteCountFormatter()
+	formatter.countStyle = .file
+	formatter.allowedUnits = [.useKB, .useMB, .useGB]
+	return formatter
+}()
+
+private func byteString(_ bytes:Int64)->String{
+	byteFormatter.string(fromByteCount: max(0, bytes))
+}
+
+private func timeString(_ seconds:Double)->String{
+	let total=Int(seconds.rounded())
+	if total<60{
+		return String(format: NSLocalizedString("Transfer.Seconds", value: "%d s", comment: ""), total)
+	}
+	let minutes=total/60
+	if minutes<60{
+		return String(format: NSLocalizedString("Transfer.Minutes", value: "%d m %d s", comment: ""), minutes, total%60)
+	}
+	return String(format: NSLocalizedString("Transfer.Hours", value: "%d h %d m", comment: ""), minutes/60, minutes%60)
+}
+
+// MARK: - Card
+
+/// Draws a flat colour and optional corner radius, re-applying both on
+/// appearance changes so it follows light and dark mode.
+class LayerBackgroundView:NSView{
+	var fillColor:NSColor = .clear
+	var cornerRadius:CGFloat = 0
+
+	override var wantsUpdateLayer:Bool{
+		return true
+	}
+
+	override func updateLayer(){
+		layer?.backgroundColor=fillColor.cgColor
+		layer?.cornerRadius=cornerRadius
+		layer?.masksToBounds=cornerRadius>0
+	}
+}
+
+/// One transfer row: the progress sweeps across the card behind the text.
+final class TransferCard:LayerBackgroundView{
+
+	static let width:CGFloat=304
+	static let height:CGFloat=78
+	/// So the rounded corners are visible inside the menu.
+	private static let menuInset:CGFloat=5
+
+	private let progressFill=LayerBackgroundView()
+	private let percentLabel=NSTextField(labelWithString:"")
+	private let detailLabel=NSTextField(labelWithString:"")
+	private let rateIcon=NSImageView()
+	private let rateLabel=NSTextField(labelWithString:"")
+	private let closeButton=NSButton()
+
+	private var fillWidth:NSLayoutConstraint!
+
+	private var onClose:(()->Void)?
+
+	/// Wraps a card in a menu item.
+	static func menuItem(for display:TransferDisplay, onClose:@escaping ()->Void)->(item:NSMenuItem, card:TransferCard){
+		let container=NSView(frame: NSRect(x: 0, y: 0, width: width+2*menuInset, height: height+2*menuInset))
+		let card=TransferCard(onClose: onClose)
+		card.frame=NSRect(x: menuInset, y: menuInset, width: width, height: height)
+		container.addSubview(card)
+		let item=NSMenuItem()
+		item.view=container
+		return (item, card)
+	}
+
+	init(onClose:@escaping ()->Void){
+		self.onClose=onClose
+		super.init(frame: NSRect(x: 0, y: 0, width: TransferCard.width, height: TransferCard.height))
+		cornerRadius=12
+		fillColor = NSColor.labelColor.withAlphaComponent(0.06)
+
+		progressFill.fillColor = NSColor.labelColor.withAlphaComponent(0.16)
+		progressFill.translatesAutoresizingMaskIntoConstraints=false
+
+		percentLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+		percentLabel.lineBreakMode = .byTruncatingTail
+		percentLabel.translatesAutoresizingMaskIntoConstraints=false
+
+		detailLabel.font = .systemFont(ofSize: 11)
+		detailLabel.textColor = .secondaryLabelColor
+		detailLabel.lineBreakMode = .byTruncatingMiddle
+		detailLabel.translatesAutoresizingMaskIntoConstraints=false
+
+		rateIcon.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+		rateIcon.contentTintColor = .secondaryLabelColor
+		rateIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .regular)
+		rateIcon.translatesAutoresizingMaskIntoConstraints=false
+
+		rateLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+		rateLabel.textColor = .secondaryLabelColor
+		rateLabel.translatesAutoresizingMaskIntoConstraints=false
+
+		closeButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: NSLocalizedString("Transfer.Dismiss", value: "Dismiss", comment: ""))
+		closeButton.isBordered=false
+		closeButton.bezelStyle = .circular
+		closeButton.contentTintColor = .tertiaryLabelColor
+		closeButton.imagePosition = .imageOnly
+		closeButton.target=self
+		closeButton.action = #selector(closeTapped(_:))
+		closeButton.translatesAutoresizingMaskIntoConstraints=false
+
+		for view in [progressFill, percentLabel, detailLabel, rateIcon, rateLabel, closeButton] as [NSView]{
+			addSubview(view)
+		}
+
+		fillWidth=progressFill.widthAnchor.constraint(equalToConstant: 0)
+
+		NSLayoutConstraint.activate([
+			fillWidth,
+			progressFill.leadingAnchor.constraint(equalTo: leadingAnchor),
+			progressFill.topAnchor.constraint(equalTo: topAnchor),
+			progressFill.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+			percentLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+			percentLabel.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -10),
+			percentLabel.topAnchor.constraint(equalTo: topAnchor, constant: 13),
+
+			detailLabel.leadingAnchor.constraint(equalTo: percentLabel.leadingAnchor),
+			detailLabel.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -10),
+			detailLabel.topAnchor.constraint(equalTo: percentLabel.bottomAnchor, constant: 2),
+
+			rateIcon.leadingAnchor.constraint(equalTo: percentLabel.leadingAnchor),
+			rateIcon.centerYAnchor.constraint(equalTo: rateLabel.centerYAnchor),
+			rateIcon.widthAnchor.constraint(equalToConstant: 12),
+			rateIcon.heightAnchor.constraint(equalToConstant: 12),
+
+			rateLabel.leadingAnchor.constraint(equalTo: rateIcon.trailingAnchor, constant: 4),
+			rateLabel.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -10),
+			rateLabel.topAnchor.constraint(equalTo: detailLabel.bottomAnchor, constant: 3),
+
+			closeButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+			closeButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+			closeButton.widthAnchor.constraint(equalToConstant: 20),
+			closeButton.heightAnchor.constraint(equalToConstant: 20),
+		])
+	}
+
+	required init?(coder:NSCoder){
+		fatalError("not supported")
+	}
+
+	@objc private func closeTapped(_ sender:Any?){
+		onClose?()
+	}
+
+	func update(_ display:TransferDisplay){
+		percentLabel.stringValue=display.percentText
+		detailLabel.stringValue=display.detail
+		detailLabel.isHidden=display.detail.isEmpty
+		if let rateText=display.rateText{
+			rateIcon.isHidden=false
+			rateLabel.isHidden=false
+			rateLabel.stringValue=rateText
+		}else{
+			rateIcon.isHidden=true
+			rateLabel.isHidden=true
+		}
+		fillWidth.constant=TransferCard.width*CGFloat(display.fraction)
+		setNeedsDisplay(bounds)
+	}
+}
+
+// MARK: - Controller
+
+/// Tracks every transfer in flight and tells the app when to redraw.
 final class TransferProgressController{
 
 	static let shared=TransferProgressController()
 
-	/// Mirrors the headline progress into the menu bar — percentage and transfer
+	/// Mirrors the headline progress into the menu bar title — percentage and
 	/// rate — or `nil` when nothing is transferring.
 	var onStatusChanged:((String?)->Void)?
+	/// A transfer appeared, finished or was dismissed: the menu items need to
+	/// be rebuilt.
+	var onTransfersChanged:(()->Void)?
+	/// The numbers moved: redraw the existing cards.
+	var onProgressChanged:(()->Void)?
 
-	private var transfers:[String:ActiveTransfer]=[:]
-	/// The panel follows the transfer that started most recently.
+	private var active:[String:ActiveTransfer]=[:]
+	/// Insertion order, so the menu list is stable.
 	private var order:[String]=[]
-	private var panel:NSPanel?
-	private var showWorkItem:DispatchWorkItem?
-	private var hideWorkItem:DispatchWorkItem?
-	private var refreshTimer:Timer?
-
-	private let iconView=NSImageView()
-	private let titleLabel=NSTextField(labelWithString:"")
-	private let detailLabel=NSTextField(labelWithString:"")
-	private let progressBar=NSProgressIndicator()
-	private let statsLabel=NSTextField(labelWithString:"")
-
-	/// Transfers shorter than this never show a panel at all — they would only
-	/// flash on screen for a few frames.
-	private let showDelay:TimeInterval=0.35
-	/// How long the finished bar lingers before fading away.
-	private let hideDelay:TimeInterval=1.2
-
-	private static let byteFormatter:ByteCountFormatter={
-		let formatter=ByteCountFormatter()
-		formatter.countStyle = .file
-		formatter.allowedUnits = [.useKB, .useMB, .useGB]
-		return formatter
-	}()
+	/// Transfers the user closed, which stay hidden while they run.
+	private var dismissed:Set<String>=[]
+	private var reportedStatus:String?=nil
 
 	private init(){}
+
+	/// Live transfers, oldest first. Dismissed ones are filtered out.
+	var transfers:[TransferDisplay]{
+		order.filter {!dismissed.contains($0)}.compactMap { active[$0]?.display() }
+	}
+
+	/// True while something is being tracked, dismissed or not.
+	var hasTransfers:Bool{
+		!active.isEmpty
+	}
 
 	// MARK: - Transfer lifecycle
 
 	/// Creates the transfer on its first report and updates it afterwards.
-	func update(id:String, deviceName:String, detail:String, direction:TransferDirection, transferred:Int64, total:Int64){
-		hideWorkItem?.cancel()
-		hideWorkItem=nil
-
-		if var transfer=transfers[id]{
-			transfer.deviceName=deviceName
-			transfer.detail=detail
-			transfer.sample(transferred: transferred, total: total)
-			transfers[id]=transfer
-		}else{
-			transfers[id]=ActiveTransfer(id: id, deviceName: deviceName, detail: detail, direction: direction, transferred: transferred, total: total)
+	func update(id:String, deviceName:String, direction:TransferDirection, progress:TransferProgress){
+		let isNew=active[id]==nil
+		if isNew{
+			active[id]=ActiveTransfer(id: id, deviceName: deviceName, direction: direction, progress: progress)
 			order.append(id)
-			scheduleShow()
+		}else{
+			active[id]?.deviceName=deviceName
+			active[id]?.sample(progress)
 		}
-		refresh()
+		reportStatus()
+		if isNew{
+			onTransfersChanged?()
+		}else{
+			onProgressChanged?()
+		}
 	}
 
 	/// Drops a transfer — on completion, failure or cancellation.
 	func finish(id:String){
-		guard transfers.removeValue(forKey: id) != nil else {return}
+		guard active.removeValue(forKey: id) != nil else {return}
 		order.removeAll {$0==id}
-		refresh()
-		if transfers.isEmpty{
-			scheduleHide()
+		dismissed.remove(id)
+		reportStatus()
+		onTransfersChanged?()
+	}
+
+	/// The user closed the card. The transfer itself keeps running; only its
+	/// row goes away.
+	func dismiss(id:String){
+		guard active[id] != nil, !dismissed.contains(id) else {return}
+		dismissed.insert(id)
+		onTransfersChanged?()
+	}
+
+	/// Ages the rates of idle transfers. Called on a timer while the menu is
+	/// open so the numbers do not go stale on screen.
+	func refreshRates(){
+		guard hasTransfers else {return}
+		for (id, var transfer) in active{
+			transfer.decaySpeed(ifIdleFor: 1.5)
+			active[id]=transfer
 		}
+		reportStatus()
+		onProgressChanged?()
 	}
 
-	// MARK: - Show / hide
+	// MARK: - Menu bar title
 
-	private func scheduleShow(){
-		guard showWorkItem==nil, let id=order.last else {return}
-		let item=DispatchWorkItem { [weak self] in
-			guard let self=self else {return}
-			self.showWorkItem=nil
-			guard self.transfers[id] != nil else {return}
-			self.showPanel()
-		}
-		showWorkItem=item
-		DispatchQueue.main.asyncAfter(deadline: .now()+showDelay, execute: item)
-	}
-
-	private func scheduleHide(){
-		hideWorkItem?.cancel()
-		let item=DispatchWorkItem { [weak self] in
-			guard let self=self else {return}
-			self.hideWorkItem=nil
-			guard self.transfers.isEmpty else {return}
-			self.hidePanel()
-		}
-		hideWorkItem=item
-		DispatchQueue.main.asyncAfter(deadline: .now()+hideDelay, execute: item)
-	}
-
-	private func showPanel(){
-		let panel=ensurePanel()
-		position(panel)
-		startRefreshTimer()
-		guard panel.alphaValue<1 else {return}
-		panel.alphaValue=0
-		panel.orderFrontRegardless()
-		NSAnimationContext.runAnimationGroup { context in
-			context.duration=0.15
-			panel.animator().alphaValue=1
-		}
-	}
-
-	private func hidePanel(){
-		stopRefreshTimer()
-		report(status: nil)
-		guard let panel=panel else {return}
-		NSAnimationContext.runAnimationGroup({ context in
-			context.duration=0.25
-			panel.animator().alphaValue=0
-		}, completionHandler: {
-			panel.orderOut(nil)
-		})
-	}
-
-	private func position(_ panel:NSPanel){
-		guard let screen=NSScreen.main ?? NSScreen.screens.first else {return}
-		let visible=screen.visibleFrame
-		let size=panel.frame.size
-		panel.setFrameOrigin(NSPoint(x: visible.maxX-size.width-20, y: visible.minY+20))
-	}
-
-	// MARK: - Refreshing
-
-	private func startRefreshTimer(){
-		guard refreshTimer==nil else {return}
-		// The timer keeps the rate honest (and the estimate counting down) even
-		// while no new chunk has arrived.
-		let timer=Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
-			self?.tick()
-		}
-		RunLoop.main.add(timer, forMode: .common)
-		refreshTimer=timer
-	}
-
-	private func stopRefreshTimer(){
-		refreshTimer?.invalidate()
-		refreshTimer=nil
-	}
-
-	private func tick(){
-		guard let id=order.last, var transfer=transfers[id] else {return}
-		transfer.decaySpeed(ifIdleFor: 1.5)
-		transfers[id]=transfer
-		refresh()
-	}
-
-	private var reportedStatus:String?=nil
-
-	private func report(status:String?){
+	private func reportStatus(){
+		let status=order.last.flatMap { active[$0] }.map(statusText(for:))
 		guard reportedStatus != status else {return}
 		reportedStatus=status
 		onStatusChanged?(status)
 	}
 
-	private func refresh(){
-		guard let id=order.last, let transfer=transfers[id] else {
-			report(status: nil)
-			return
-		}
-		titleLabel.stringValue=String(format: transfer.direction.headline, transfer.deviceName)
-		detailLabel.stringValue=transfer.detail
-		progressBar.doubleValue=transfer.fraction
-		statsLabel.stringValue=statsText(for: transfer)
-		report(status: statusText(for: transfer))
-	}
-
-	/// The menu bar title: "42% · 8.3 MB/s", dropping the rate until there is a
-	/// meaningful one to show.
+	/// "77% · 523 Mbps", dropping the rate until there is a meaningful one.
 	private func statusText(for transfer:ActiveTransfer)->String{
-		let percent=Int((transfer.fraction*100).rounded())
-		guard transfer.speed>1024 else {return "\(percent)%"}
-		return "\(percent)% · \(rateText(transfer.speed))"
-	}
-
-	private func rateText(_ bytesPerSecond:Double)->String{
-		String(format: NSLocalizedString("Transfer.Rate", value: "%@/s", comment: ""), byteString(Int64(bytesPerSecond)))
-	}
-
-	private func statsText(for transfer:ActiveTransfer)->String{
-		let done=byteString(transfer.transferred)
-		guard transfer.total>0 else {return done}
-		var parts=["\(done) / \(byteString(transfer.total))"]
-		guard transfer.speed>1024 else {return parts.joined(separator: " · ")}
-		parts.append(rateText(transfer.speed))
-		let seconds=Double(transfer.total-transfer.transferred)/transfer.speed
-		if seconds>0.5 && seconds<3600{
-			parts.append(String(format: NSLocalizedString("Transfer.TimeLeft", value: "%@ left", comment: ""), timeString(seconds)))
-		}
-		return parts.joined(separator: " · ")
-	}
-
-	private func byteString(_ bytes:Int64)->String{
-		TransferProgressController.byteFormatter.string(fromByteCount: max(0, bytes))
-	}
-
-	private func timeString(_ seconds:Double)->String{
-		let total=Int(seconds.rounded())
-		if total<60{
-			return String(format: NSLocalizedString("Transfer.Seconds", value: "%d s", comment: ""), total)
-		}
-		let minutes=total/60
-		if minutes<60{
-			return String(format: NSLocalizedString("Transfer.Minutes", value: "%d m %d s", comment: ""), minutes, total%60)
-		}
-		return String(format: NSLocalizedString("Transfer.Hours", value: "%d h %d m", comment: ""), minutes/60, minutes%60)
-	}
-
-	// MARK: - Panel
-
-	private func ensurePanel()->NSPanel{
-		if let panel=panel{
-			return panel
-		}
-		let panel=NSPanel(contentRect: NSRect(x: 0, y: 0, width: 380, height: 116),
-		                  styleMask: [.borderless, .nonactivatingPanel],
-		                  backing: .buffered,
-		                  defer: false)
-		panel.isOpaque=false
-		panel.backgroundColor = .clear
-		panel.hasShadow=true
-		panel.level = .floating
-		panel.hidesOnDeactivate=false
-		panel.isReleasedWhenClosed=false
-		panel.isMovableByWindowBackground=true
-		panel.collectionBehavior=[.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-
-		let backdrop=NSVisualEffectView()
-		backdrop.material = .popover
-		backdrop.blendingMode = .behindWindow
-		backdrop.state = .active
-		backdrop.wantsLayer=true
-		backdrop.layer?.cornerRadius=14
-		backdrop.layer?.masksToBounds=true
-		panel.contentView=backdrop
-
-		iconView.image=NSApp.applicationIconImage
-		iconView.imageScaling = .scaleProportionallyUpOrDown
-		titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-		titleLabel.lineBreakMode = .byTruncatingTail
-		detailLabel.font = .systemFont(ofSize: 11)
-		detailLabel.textColor = .secondaryLabelColor
-		detailLabel.lineBreakMode = .byTruncatingMiddle
-		progressBar.isIndeterminate=false
-		progressBar.style = .bar
-		progressBar.controlSize = .small
-		progressBar.minValue=0
-		progressBar.maxValue=1
-		statsLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-		statsLabel.textColor = .secondaryLabelColor
-		statsLabel.lineBreakMode = .byTruncatingTail
-
-		for view in [iconView, titleLabel, detailLabel, progressBar, statsLabel] as [NSView]{
-			view.translatesAutoresizingMaskIntoConstraints=false
-			backdrop.addSubview(view)
-		}
-
-		NSLayoutConstraint.activate([
-			iconView.leadingAnchor.constraint(equalTo: backdrop.leadingAnchor, constant: 16),
-			iconView.topAnchor.constraint(equalTo: backdrop.topAnchor, constant: 16),
-			iconView.widthAnchor.constraint(equalToConstant: 32),
-			iconView.heightAnchor.constraint(equalToConstant: 32),
-
-			titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-			titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: backdrop.trailingAnchor, constant: -16),
-			titleLabel.topAnchor.constraint(equalTo: iconView.topAnchor, constant: 1),
-
-			detailLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-			detailLabel.trailingAnchor.constraint(lessThanOrEqualTo: backdrop.trailingAnchor, constant: -16),
-			detailLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1),
-
-			progressBar.leadingAnchor.constraint(equalTo: backdrop.leadingAnchor, constant: 16),
-			progressBar.trailingAnchor.constraint(equalTo: backdrop.trailingAnchor, constant: -16),
-			progressBar.topAnchor.constraint(equalTo: detailLabel.bottomAnchor, constant: 14),
-
-			statsLabel.leadingAnchor.constraint(equalTo: progressBar.leadingAnchor),
-			statsLabel.trailingAnchor.constraint(equalTo: progressBar.trailingAnchor),
-			statsLabel.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 8),
-		])
-
-		self.panel=panel
-		refresh()
-		return panel
+		guard let rate=transfer.rateText else {return "\(transfer.percent)%"}
+		return "\(transfer.percent)% · \(rate)"
 	}
 }
