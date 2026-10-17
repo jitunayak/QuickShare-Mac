@@ -193,6 +193,17 @@ public protocol ShareExtensionDelegate:AnyObject{
 	func transferFinished()
 }
 
+/// Progress events for an outgoing transfer. The host app observes these through
+/// `NearbyConnectionManager.onOutgoingTransferEvent` so it can post notifications
+/// and record transfer history keyed by device.
+public enum OutgoingTransferEvent{
+	case established
+	case accepted
+	case progress(Double)
+	case finished
+	case failed(Error)
+}
+
 public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNearbyConnectionDelegate, OutboundNearbyConnectionDelegate{
 	
 	private var tcpListener:NWListener;
@@ -202,10 +213,12 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	private var foundServices:[String:FoundServiceInfo]=[:]
 	private var shareExtensionDelegates:[ShareExtensionDelegate]=[]
 	private var outgoingTransfers:[String:OutgoingTransferInfo]=[:]
-	private var textTransferCompletions:[String:(Result<Void,Error>)->Void]=[:]
 	public var mainAppDelegate:(any MainAppDelegate)?
 	/// Called on the main queue whenever the list of discovered devices changes.
 	public var onDevicesChanged:(()->Void)?
+	/// Called on the main queue as outgoing transfers progress. The device id is
+	/// the same value that was passed to `startOutgoingTransfer` or `sendText`.
+	public var onOutgoingTransferEvent:((_ deviceID:String, _ event:OutgoingTransferEvent)->Void)?
 	private var discoveryRefCount=0
 	
 	private var browser:NWBrowser?
@@ -306,6 +319,11 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	/// Devices currently discoverable on the local network.
 	public var discoveredDevices:[RemoteDeviceInfo]{
 		foundServices.values.compactMap({$0.device})
+	}
+	
+	/// The last known name of a device, or `nil` if it is no longer discoverable.
+	public func deviceName(forID deviceID:String)->String?{
+		foundServices[deviceID]?.device?.name
 	}
 	
 	private func notifyDevicesChanged(){
@@ -470,8 +488,11 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	
 	// MARK: - Outbound (sending)
 	
-	public func startOutgoingTransfer(deviceID:String, delegate:ShareExtensionDelegate, urls:[URL]){
-		guard let info=foundServices[deviceID] else {return}
+	/// Starts sending files to a discovered device. Returns `false` if the
+	/// device is no longer discoverable.
+	@discardableResult
+	public func startOutgoingTransfer(deviceID:String, delegate:ShareExtensionDelegate?, urls:[URL]) -> Bool{
+		guard let info=foundServices[deviceID] else {return false}
 		let tcp=NWProtocolTCP.Options.init()
 		tcp.noDelay=true
 		let nwconn=NWConnection(to: info.service.endpoint, using: NWParameters(tls: .none, tcp: tcp))
@@ -481,13 +502,15 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 		let transfer=OutgoingTransferInfo(service: info.service, device: info.device!, connection: conn, delegate: delegate)
 		outgoingTransfers[deviceID]=transfer
 		conn.start()
+		return true
 	}
 	
 	/// Pushes a string to a discovered device. Used for "send clipboard".
-	public func sendText(_ text:String, isURL:Bool, toDeviceID deviceID:String, completion:@escaping (Result<Void,Error>)->Void){
+	/// Returns `false` if the device is no longer discoverable.
+	@discardableResult
+	public func sendText(_ text:String, isURL:Bool, toDeviceID deviceID:String) -> Bool{
 		guard let info=foundServices[deviceID] else{
-			completion(.failure(NearbyError.protocolError("Device is no longer available")))
-			return
+			return false
 		}
 		let tcp=NWProtocolTCP.Options.init()
 		tcp.noDelay=true
@@ -497,11 +520,18 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 		conn.qrCodePrivateKey=qrCodePrivateKey
 		let transfer=OutgoingTransferInfo(service: info.service, device: info.device!, connection: conn, delegate: nil)
 		outgoingTransfers[deviceID]=transfer
-		textTransferCompletions[deviceID]=completion
 		conn.start()
+		return true
+	}
+	
+	private func emitOutgoingEvent(deviceID:String, event:OutgoingTransferEvent){
+		DispatchQueue.main.async {
+			self.onOutgoingTransferEvent?(deviceID, event)
+		}
 	}
 	
 	func outboundConnectionWasEstablished(connection: OutboundNearbyConnection) {
+		emitOutgoingEvent(deviceID: connection.id, event: .established)
 		guard let transfer=outgoingTransfers[connection.id], let delegate=transfer.delegate else {return}
 		DispatchQueue.main.async {
 			delegate.connectionWasEstablished(pinCode: connection.pinCode ?? "")
@@ -509,6 +539,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	}
 	
 	func outboundConnectionTransferAccepted(connection: OutboundNearbyConnection) {
+		emitOutgoingEvent(deviceID: connection.id, event: .accepted)
 		guard let transfer=outgoingTransfers[connection.id], let delegate=transfer.delegate else {return}
 		DispatchQueue.main.async {
 			delegate.transferAccepted()
@@ -516,6 +547,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	}
 	
 	func outboundConnection(connection: OutboundNearbyConnection, transferProgress: Double) {
+		emitOutgoingEvent(deviceID: connection.id, event: .progress(transferProgress))
 		guard let transfer=outgoingTransfers[connection.id], let delegate=transfer.delegate else {return}
 		DispatchQueue.main.async {
 			delegate.transferProgress(progress: transferProgress)
@@ -523,11 +555,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	}
 	
 	func outboundConnection(connection: OutboundNearbyConnection, failedWithError: Error) {
-		if let completion=textTransferCompletions.removeValue(forKey: connection.id){
-			DispatchQueue.main.async {
-				completion(.failure(failedWithError))
-			}
-		}
+		emitOutgoingEvent(deviceID: connection.id, event: .failed(failedWithError))
 		if let transfer=outgoingTransfers[connection.id], let delegate=transfer.delegate{
 			DispatchQueue.main.async {
 				delegate.connectionFailed(with: failedWithError)
@@ -537,11 +565,7 @@ public class NearbyConnectionManager : NSObject, NetServiceDelegate, InboundNear
 	}
 	
 	func outboundConnectionTransferFinished(connection: OutboundNearbyConnection) {
-		if let completion=textTransferCompletions.removeValue(forKey: connection.id){
-			DispatchQueue.main.async {
-				completion(.success(()))
-			}
-		}
+		emitOutgoingEvent(deviceID: connection.id, event: .finished)
 		if let transfer=outgoingTransfers[connection.id], let delegate=transfer.delegate{
 			DispatchQueue.main.async {
 				delegate.transferFinished()

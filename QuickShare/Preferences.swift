@@ -7,6 +7,41 @@
 
 import SwiftUI
 import Combine
+import ServiceManagement
+
+/// Thin wrapper around `SMAppService` so the app can register itself as a login
+/// item. `SMAppService` requires macOS 13; on older systems the feature is
+/// reported as unavailable and the preference is hidden.
+enum LoginItem {
+	static var isSupported: Bool {
+		if #available(macOS 13.0, *) { return true }
+		return false
+	}
+
+	static var isEnabled: Bool {
+		if #available(macOS 13.0, *) {
+			return SMAppService.mainApp.status == .enabled
+		}
+		return false
+	}
+
+	static func setEnabled(_ enabled: Bool) {
+		guard #available(macOS 13.0, *) else { return }
+		do {
+			if enabled {
+				if SMAppService.mainApp.status != .enabled {
+					try SMAppService.mainApp.register()
+				}
+			} else {
+				if SMAppService.mainApp.status == .enabled {
+					try SMAppService.mainApp.unregister()
+				}
+			}
+		} catch {
+			NSLog("QuickShare: could not \(enabled ? "enable" : "disable") launch at login: \(error)")
+		}
+	}
+}
 
 final class AppSettings: ObservableObject {
 	static let shared=AppSettings()
@@ -21,8 +56,14 @@ final class AppSettings: ObservableObject {
 		didSet{ defaults.set(autoAccept, forKey: Keys.autoAccept) }
 	}
 
+	/// When enabled, QuickShare starts automatically when the user logs in.
+	@Published var launchAtLogin:Bool{
+		didSet{ LoginItem.setEnabled(launchAtLogin) }
+	}
+
 	private init(){
 		autoAccept=defaults.bool(forKey: Keys.autoAccept)
+		launchAtLogin=LoginItem.isEnabled
 	}
 }
 
@@ -40,6 +81,20 @@ struct PreferencesView: View {
 				.foregroundStyle(.secondary)
 				.fixedSize(horizontal: false, vertical: true)
 
+			Toggle(NSLocalizedString("Pref.LaunchAtLogin", value: "Launch QuickShare at login", comment: ""), isOn: $settings.launchAtLogin)
+				.disabled(!LoginItem.isSupported)
+			if LoginItem.isSupported{
+				Text(NSLocalizedString("Pref.LaunchAtLoginHint", value: "QuickShare starts in the menu bar as soon as you log in, ready to receive files.", comment: ""))
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+			}else{
+				Text(NSLocalizedString("Pref.LaunchAtLoginUnsupported", value: "Launch at login requires macOS 13 or later.", comment: ""))
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+			}
+
 			Divider()
 
 			VStack(alignment: .leading, spacing: 4){
@@ -52,7 +107,7 @@ struct PreferencesView: View {
 			Spacer(minLength: 0)
 		}
 		.padding(20)
-		.frame(width: 420, height: 260, alignment: .topLeading)
+		.frame(width: 460, height: 360, alignment: .topLeading)
 	}
 }
 

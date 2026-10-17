@@ -19,6 +19,8 @@ accept flow. See [NOTICE.md](NOTICE.md) for attribution.
 | Accepting | notification with PIN | notification with Accept / Decline (optional auto‑accept) |
 | Sending files to Android | Finder → Share → app | Finder → Share, **or** menu bar → *Send Files to ▸ …* |
 | Sending the clipboard to Android | ✗ | **menu bar → *Send Clipboard to ▸ …*** |
+| Recent transfer **history** | ✗ | **last 10 items, persisted across restarts** |
+| **Launch at login** | ✗ | optional toggle in Preferences (macOS 13+) |
 | QR code | ✓ | ✓ |
 
 ## Features
@@ -38,6 +40,15 @@ accept flow. See [NOTICE.md](NOTICE.md) for attribution.
   text as a text snippet.
 - **QR code** to make Android discover your Mac (handy on Samsung devices, see
   below).
+- **Transfer history.** The menu bar keeps the last **10** transfers (received
+  and sent) under *History*. Click an entry to act on it again — copy text back
+  to the clipboard, reopen a link, or reveal a received/sent file in Finder. The
+  list is stored in `UserDefaults`, so it survives relaunches; clear it any time
+  with *History ▸ Clear History*.
+- **Launch at login** (optional). Turn on *Launch QuickShare at login* in
+  Preferences and the app starts in the menu bar as soon as you log in. This uses
+  the modern `SMAppService` API, so it requires **macOS 13 or later**; on older
+  systems the option is shown as unavailable.
 
 Everything lives in the menu bar. There is no dock icon and no main window.
 
@@ -82,7 +93,7 @@ connection happen from the Android side:
 
 ```
 QuickShare.xcodeproj    Xcode project (app + share extension + kit)
-QuickShare/             Menu bar app (AppDelegate, Preferences, resources)
+QuickShare/             Menu bar app (AppDelegate, Preferences, History, resources)
 QuickShareKit/          Nearby Share protocol core (send + receive, clipboard)
 ShareExtension/         macOS Share extension used for "share files to Android"
 docs/PROTOCOL.md        Notes on how the protocol works

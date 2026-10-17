@@ -14,12 +14,16 @@ import UserNotifications
 import QuickShareKit
 
 @main
-class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSMenuDelegate, MainAppDelegate, ShareExtensionDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, NSMenuDelegate, MainAppDelegate {
 	private var statusItem:NSStatusItem?
 	private var clipboardMenu:NSMenu?
 	private var filesMenu:NSMenu?
+	private var historyMenu:NSMenu?
 	private var activeIncomingTransfers:[String:TransferInfo]=[:]
 	private var lastTextReceivedFrom:RemoteDeviceInfo?
+	/// Info about an outgoing transfer we started, keyed by device id, so the
+	/// matching completion event can be turned into a history entry.
+	private var pendingOutgoing:[String:PendingOutgoing]=[:]
 
 	// MARK: - Lifecycle
 
@@ -43,6 +47,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		NearbyConnectionManager.shared.mainAppDelegate=self
 		NearbyConnectionManager.shared.onDevicesChanged={ [weak self] in
 			self?.rebuildDeviceMenus()
+		}
+		NearbyConnectionManager.shared.onOutgoingTransferEvent={ [weak self] deviceID, event in
+			self?.handleOutgoingEvent(deviceID: deviceID, event: event)
 		}
 		NearbyConnectionManager.shared.becomeVisible()
 	}
@@ -85,6 +92,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		filesItem.submenu=filesMenu
 		menu.addItem(filesItem)
 
+		historyMenu=NSMenu()
+		let historyItem=NSMenuItem(title: NSLocalizedString("History", value: "History", comment: ""), action: nil, keyEquivalent: "")
+		historyItem.submenu=historyMenu
+		menu.addItem(historyItem)
+
 		menu.addItem(NSMenuItem.separator())
 		let prefsItem=NSMenuItem(title: NSLocalizedString("Preferences", value: "Preferences…", comment: ""), action: #selector(openPreferences(_:)), keyEquivalent: ",")
 		prefsItem.target=self
@@ -125,6 +137,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	func menuWillOpen(_ menu: NSMenu) {
 		NearbyConnectionManager.shared.startDeviceDiscovery()
 		rebuildDeviceMenus()
+		rebuildHistoryMenu()
 	}
 
 	func menuDidClose(_ menu: NSMenu) {
@@ -142,14 +155,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		}
 		let trimmed=text.trimmingCharacters(in: .whitespacesAndNewlines)
 		let isURL=trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")
-		NearbyConnectionManager.shared.sendText(text, isURL: isURL, toDeviceID: deviceID){ [weak self] result in
-			switch result{
-			case .success:
-				self?.postInfoNotification(title: NSLocalizedString("ClipboardSent.Title", value: "Clipboard sent", comment: ""), body: NSLocalizedString("ClipboardSent.Body", value: "The clipboard was shared successfully.", comment: ""))
-			case .failure(let error):
-				self?.postErrorNotification(error.localizedDescription)
-			}
+		guard NearbyConnectionManager.shared.sendText(text, isURL: isURL, toDeviceID: deviceID) else{
+			showAlert(title: NSLocalizedString("DeviceGone.Title", value: "Device unavailable", comment: ""), message: NSLocalizedString("DeviceGone.Message", value: "That device is no longer reachable. Make sure Quick Share is open on it and try again.", comment: ""))
+			return
 		}
+		pendingOutgoing[deviceID]=PendingOutgoing(
+			kind: isURL ? .sentLink : .sentText,
+			title: isURL ? linkSummary(text) : textPreview(text),
+			payload: text,
+			deviceName: deviceName(forID: deviceID))
 	}
 
 	@objc private func sendFilesToDevice(_ sender:NSMenuItem){
@@ -160,14 +174,52 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		panel.allowsMultipleSelection=true
 		panel.prompt=NSLocalizedString("Send", comment: "")
 		NSApp.activate(ignoringOtherApps: true)
-		panel.begin { response in
+		panel.begin { [weak self] response in
 			guard response == .OK, !panel.urls.isEmpty else {return}
-			NearbyConnectionManager.shared.startOutgoingTransfer(deviceID: deviceID, delegate: self, urls: panel.urls)
+			let urls=panel.urls
+			guard NearbyConnectionManager.shared.startOutgoingTransfer(deviceID: deviceID, delegate: nil, urls: urls) else{
+				self?.showAlert(title: NSLocalizedString("DeviceGone.Title", value: "Device unavailable", comment: ""), message: NSLocalizedString("DeviceGone.Message", value: "That device is no longer reachable. Make sure Quick Share is open on it and try again.", comment: ""))
+				return
+			}
+			let title: String
+			if urls.count==1{
+				title=urls[0].lastPathComponent
+			}else{
+				title=String(format: NSLocalizedString("History.NFiles", value: "%d files", comment: ""), urls.count)
+			}
+			self?.pendingOutgoing[deviceID]=PendingOutgoing(
+				kind: .sentFile,
+				title: title,
+				payload: urls.map({$0.path}).joined(separator: "\n"),
+				deviceName: self?.deviceName(forID: deviceID) ?? NSLocalizedString("UnknownDevice", value: "Unknown device", comment: ""))
 		}
 	}
 
 	@objc private func openPreferences(_ sender:Any?){
 		PreferencesWindowController.shared.show()
+	}
+
+	// MARK: - Outgoing transfer events
+
+	private func handleOutgoingEvent(deviceID:String, event:OutgoingTransferEvent){
+		switch event{
+		case .finished:
+			let pending=pendingOutgoing.removeValue(forKey: deviceID)
+			if let pending=pending{
+				HistoryStore.shared.record(kind: pending.kind, title: pending.title, payload: pending.payload, deviceName: pending.deviceName)
+				rebuildHistoryMenu()
+			}
+			if pending?.kind.isFile == false{
+				postInfoNotification(title: NSLocalizedString("ClipboardSent.Title", value: "Clipboard sent", comment: ""), body: NSLocalizedString("ClipboardSent.Body", value: "The clipboard was shared successfully.", comment: ""))
+			}else{
+				postInfoNotification(title: NSLocalizedString("Sent.Title", value: "Sent", comment: ""), body: NSLocalizedString("Sent.Body", value: "The transfer completed successfully.", comment: ""))
+			}
+		case .failed(let error):
+			pendingOutgoing.removeValue(forKey: deviceID)
+			postErrorNotification(errorMessage(for: error))
+		case .established, .accepted, .progress:
+			break
+		}
 	}
 
 	// MARK: - MainAppDelegate (receiving)
@@ -218,32 +270,146 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
 	func incomingText(_ text: String, isURL: Bool, from device: RemoteDeviceInfo?) {
 		lastTextReceivedFrom=device
+		let deviceName=device?.name ?? unknownDeviceName
 		if isURL{
 			postInfoNotification(title: NSLocalizedString("LinkReceived.Title", value: "Link opened", comment: ""), body: text)
+			HistoryStore.shared.record(kind: .receivedLink, title: linkSummary(text), payload: text, deviceName: deviceName)
 		}else{
-			let preview=text.count>140 ? String(text.prefix(140))+"…" : text
+			let preview=textPreview(text)
 			postInfoNotification(title: NSLocalizedString("TextReceived.Title", value: "Text copied to clipboard", comment: ""), body: preview)
+			HistoryStore.shared.record(kind: .receivedText, title: preview, payload: text, deviceName: deviceName)
 		}
+		rebuildHistoryMenu()
 	}
 
 	func incomingFile(at url: URL, from device: RemoteDeviceInfo?) {
 		postInfoNotification(title: NSLocalizedString("FileReceived.Title", value: "File received", comment: ""), body: url.lastPathComponent)
+		HistoryStore.shared.record(kind: .receivedFile, title: url.lastPathComponent, payload: url.path, deviceName: device?.name ?? unknownDeviceName)
+		rebuildHistoryMenu()
 	}
 
-	// MARK: - ShareExtensionDelegate (sending initiated from this app)
+	// MARK: - History menu
 
-	func addDevice(device: RemoteDeviceInfo) { rebuildDeviceMenus() }
-	func removeDevice(id: String) { rebuildDeviceMenus() }
-	func startTransferWithQrCode(device: RemoteDeviceInfo) {}
-	func connectionWasEstablished(pinCode: String) {}
-	func transferAccepted() {}
-	func transferProgress(progress: Double) {}
-	func transferFinished() {
-		postInfoNotification(title: NSLocalizedString("Sent.Title", value: "Sent", comment: ""), body: NSLocalizedString("Sent.Body", value: "The transfer completed successfully.", comment: ""))
+	private func rebuildHistoryMenu(){
+		guard let historyMenu=historyMenu else {return}
+		historyMenu.removeAllItems()
+		let items=HistoryStore.shared.items
+		if items.isEmpty{
+			let empty=NSMenuItem(title: NSLocalizedString("History.Empty", value: "No recent transfers", comment: ""), action: nil, keyEquivalent: "")
+			empty.isEnabled=false
+			historyMenu.addItem(empty)
+			return
+		}
+		for item in items{
+			let menuItem=NSMenuItem(title: historyMenuTitle(for: item), action: #selector(historyItemSelected(_:)), keyEquivalent: "")
+			menuItem.representedObject=item.id.uuidString
+			menuItem.target=self
+			menuItem.toolTip=historyTooltip(for: item)
+			menuItem.image=NSImage(systemSymbolName: historySymbol(for: item.kind), accessibilityDescription: nil)
+			historyMenu.addItem(menuItem)
+		}
+		historyMenu.addItem(NSMenuItem.separator())
+		let clear=NSMenuItem(title: NSLocalizedString("History.Clear", value: "Clear History", comment: ""), action: #selector(clearHistory(_:)), keyEquivalent: "")
+		clear.target=self
+		historyMenu.addItem(clear)
 	}
-	func connectionFailed(with error: Error) {
-		postErrorNotification(errorMessage(for: error))
+
+	@objc private func historyItemSelected(_ sender:NSMenuItem){
+		guard let idString=sender.representedObject as? String,
+		      let uuid=UUID(uuidString: idString),
+		      let item=HistoryStore.shared.items.first(where: {$0.id==uuid}) else {return}
+		switch item.kind{
+		case .receivedText, .sentText:
+			guard let text=item.payload else {return}
+			let pasteboard=NSPasteboard.general
+			pasteboard.clearContents()
+			pasteboard.setString(text, forType: .string)
+			postInfoNotification(title: NSLocalizedString("History.Copied", value: "Copied to clipboard", comment: ""), body: textPreview(text))
+		case .receivedLink, .sentLink:
+			guard let text=item.payload, let url=URL(string: text) else {return}
+			NSWorkspace.shared.open(url)
+		case .receivedFile, .sentFile:
+			revealInFinder(item.payload)
+		}
 	}
+
+	@objc private func clearHistory(_ sender:Any?){
+		HistoryStore.shared.clear()
+		rebuildHistoryMenu()
+	}
+
+	private func revealInFinder(_ payload:String?){
+		guard let payload=payload else {return}
+		let urls=payload.split(separator: "\n").map({URL(fileURLWithPath: String($0))})
+			.filter({FileManager.default.fileExists(atPath: $0.path)})
+		guard !urls.isEmpty else{
+			showAlert(title: NSLocalizedString("History.FileGone.Title", value: "File not found", comment: ""), message: NSLocalizedString("History.FileGone.Message", value: "The file is no longer at its original location.", comment: ""))
+			return
+		}
+		NSWorkspace.shared.activateFileViewerSelecting(urls)
+	}
+
+	private func historyMenuTitle(for item:HistoryItem)->String{
+		let direction=item.kind.outgoing
+			? NSLocalizedString("History.Sent", value: "Sent", comment: "")
+			: NSLocalizedString("History.Received", value: "Received", comment: "")
+		let what:String
+		switch item.kind{
+		case .receivedText, .sentText:
+			what=String(format: NSLocalizedString("History.Text", value: "text “%@”", comment: ""), item.title)
+		case .receivedLink, .sentLink:
+			what=String(format: NSLocalizedString("History.Link", value: "link %@", comment: ""), item.title)
+		case .receivedFile, .sentFile:
+			what=item.title
+		}
+		let title="\(direction) \(what) — \(item.deviceName)"
+		return title.count>90 ? String(title.prefix(90))+"…" : title
+	}
+
+	private func historyTooltip(for item:HistoryItem)->String{
+		let timestamp=AppDelegate.historyDateFormatter.string(from: item.date)
+		guard let payload=item.payload, !item.kind.isFile else{
+			return "\(item.deviceName) · \(timestamp)"
+		}
+		return "\(payload)\n\n\(item.deviceName) · \(timestamp)"
+	}
+
+	private func historySymbol(for kind:HistoryKind)->String{
+		switch kind{
+		case .receivedText, .sentText: return "doc.on.clipboard"
+		case .receivedLink, .sentLink: return "link"
+		case .receivedFile, .sentFile: return "doc"
+		}
+	}
+
+	// MARK: - Small helpers
+
+	private var unknownDeviceName:String{
+		NSLocalizedString("UnknownDevice", value: "Unknown device", comment: "")
+	}
+
+	private func deviceName(forID deviceID:String)->String{
+		NearbyConnectionManager.shared.deviceName(forID: deviceID) ?? unknownDeviceName
+	}
+
+	private func textPreview(_ text:String)->String{
+		let flattened=text.replacingOccurrences(of: "\n", with: " ")
+		return flattened.count>140 ? String(flattened.prefix(140))+"…" : flattened
+	}
+
+	private func linkSummary(_ text:String)->String{
+		guard let url=URL(string: text), let host=url.host else{
+			return textPreview(text)
+		}
+		return host
+	}
+
+	private static let historyDateFormatter:DateFormatter={
+		let formatter=DateFormatter()
+		formatter.dateStyle = .short
+		formatter.timeStyle = .short
+		return formatter
+	}()
 
 	// MARK: - Notifications
 
@@ -328,4 +494,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 struct TransferInfo{
 	let device:RemoteDeviceInfo
 	let transfer:TransferMetadata
+}
+
+/// Details of an outgoing transfer, remembered until the matching completion
+/// event arrives so a history entry can be recorded with the right metadata.
+struct PendingOutgoing{
+	let kind:HistoryKind
+	let title:String
+	let payload:String?
+	let deviceName:String
 }
