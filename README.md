@@ -17,6 +17,7 @@ accept flow. See [NOTICE.md](NOTICE.md) for attribution.
 | Receiving a **link** | opens in the browser | opens in the browser |
 | **PIN** | shown in the notification | **never shown** — just Accept / Decline |
 | Accepting | notification with PIN | notification with Accept / Decline (optional auto‑accept) |
+| Trusted devices | ✗ | **favourites auto‑accept silently, no notification** |
 | Sending files to Android | Finder → Share → app | Finder → Share, **or** menu bar → *Send Files to ▸ …* |
 | Sending the clipboard to Android | ✗ | **menu bar → *Send Clipboard to ▸ …*** |
 | Recent transfer **history** | ✗ | **last 10 items, persisted across restarts** |
@@ -49,6 +50,10 @@ accept flow. See [NOTICE.md](NOTICE.md) for attribution.
   Preferences and the app starts in the menu bar as soon as you log in. This uses
   the modern `SMAppService` API, so it requires **macOS 13 or later**; on older
   systems the option is shown as unavailable.
+- **Favourite devices.** Add a device to your favourites and transfers from it
+  are accepted automatically and **silently** — no notification at all. Trust a
+  device straight from its transfer notification with **Always Accept**, or
+  manage the list by name in Preferences.
 - **Hide from the network** (optional). Uncheck *Visible to other devices* in
   Preferences (or in the menu bar) to stop advertising the Mac, so other devices
   no longer see it or can send to it. You can still send files and the clipboard
@@ -161,6 +166,9 @@ These are inherited from the protocol/OS, not from this app:
   used by Google are not available to macOS apps.
 - While visible, your Mac is **visible to everyone on the LAN**. Turn off
   *Visible to other devices* to hide it.
+- **Favourites match on the device name.** The protocol does not expose a stable
+  identifier on an incoming connection, so a trusted entry is a convenience, not
+  a security boundary — anyone can claim a device name.
 - Receiving requires the sender to be discoverable (see above).
 
 ## License

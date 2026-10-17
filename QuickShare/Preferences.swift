@@ -88,54 +88,108 @@ final class AppSettings: ObservableObject {
 
 struct PreferencesView: View {
 	@ObservedObject var settings=AppSettings.shared
+	@ObservedObject var favourites=FavouritesStore.shared
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 14){
-			Text("QuickShare")
-				.font(.title2).bold()
+		ScrollView{
+			VStack(alignment: .leading, spacing: 14){
+				Text("QuickShare")
+					.font(.title2).bold()
 
-			Toggle(NSLocalizedString("Pref.AutoAccept", value: "Accept incoming transfers automatically", comment: ""), isOn: $settings.autoAccept)
-			Text(NSLocalizedString("Pref.AutoAcceptHint", value: "When off, QuickShare shows a notification with Accept and Decline buttons for every transfer. Text you receive is always copied to your clipboard and links always open in your browser.", comment: ""))
-				.font(.footnote)
-				.foregroundStyle(.secondary)
-				.fixedSize(horizontal: false, vertical: true)
-
-			Toggle(NSLocalizedString("Pref.LaunchAtLogin", value: "Launch QuickShare at login", comment: ""), isOn: $settings.launchAtLogin)
-				.disabled(!LoginItem.isSupported)
-			if LoginItem.isSupported{
-				Text(NSLocalizedString("Pref.LaunchAtLoginHint", value: "QuickShare starts in the menu bar as soon as you log in, ready to receive files.", comment: ""))
+				Toggle(NSLocalizedString("Pref.AutoAccept", value: "Accept incoming transfers automatically", comment: ""), isOn: $settings.autoAccept)
+				Text(NSLocalizedString("Pref.AutoAcceptHint", value: "When off, QuickShare shows a notification with Accept and Decline buttons for every transfer. Text you receive is always copied to your clipboard and links always open in your browser.", comment: ""))
 					.font(.footnote)
 					.foregroundStyle(.secondary)
 					.fixedSize(horizontal: false, vertical: true)
-			}else{
-				Text(NSLocalizedString("Pref.LaunchAtLoginUnsupported", value: "Launch at login requires macOS 13 or later.", comment: ""))
+
+				Toggle(NSLocalizedString("Pref.LaunchAtLogin", value: "Launch QuickShare at login", comment: ""), isOn: $settings.launchAtLogin)
+					.disabled(!LoginItem.isSupported)
+				if LoginItem.isSupported{
+					Text(NSLocalizedString("Pref.LaunchAtLoginHint", value: "QuickShare starts in the menu bar as soon as you log in, ready to receive files.", comment: ""))
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.fixedSize(horizontal: false, vertical: true)
+				}else{
+					Text(NSLocalizedString("Pref.LaunchAtLoginUnsupported", value: "Launch at login requires macOS 13 or later.", comment: ""))
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.fixedSize(horizontal: false, vertical: true)
+				}
+
+				Divider()
+
+				Toggle(NSLocalizedString("Pref.VisibleToggle", value: "Visible to other devices", comment: ""), isOn: $settings.visible)
+				Text(settings.visible
+					? NSLocalizedString("Pref.VisibleHint", value: "Other devices on your network can see this Mac and send to it. Turn this off to hide QuickShare from your network.", comment: "")
+					: NSLocalizedString("Pref.HiddenHint", value: "QuickShare is hidden: other devices cannot see this Mac or send to it. You can still send files and the clipboard from this Mac.", comment: ""))
 					.font(.footnote)
 					.foregroundStyle(.secondary)
 					.fixedSize(horizontal: false, vertical: true)
-			}
 
-			Divider()
+				Divider()
 
-			Toggle(NSLocalizedString("Pref.VisibleToggle", value: "Visible to other devices", comment: ""), isOn: $settings.visible)
-			Text(settings.visible
-				? NSLocalizedString("Pref.VisibleHint", value: "Other devices on your network can see this Mac and send to it. Turn this off to hide QuickShare from your network.", comment: "")
-				: NSLocalizedString("Pref.HiddenHint", value: "QuickShare is hidden: other devices cannot see this Mac or send to it. You can still send files and the clipboard from this Mac.", comment: ""))
+				favouritesSection
+
+				Divider()
+
+				VStack(alignment: .leading, spacing: 4){
+					Text(String(format: NSLocalizedString("Pref.DeviceName", value: "Device name: %@", comment: ""), Host.current().localizedName ?? "Mac"))
+				}
 				.font(.footnote)
 				.foregroundStyle(.secondary)
-				.fixedSize(horizontal: false, vertical: true)
 
-			Divider()
-
-			VStack(alignment: .leading, spacing: 4){
-				Text(String(format: NSLocalizedString("Pref.DeviceName", value: "Device name: %@", comment: ""), Host.current().localizedName ?? "Mac"))
+				Spacer(minLength: 0)
 			}
-			.font(.footnote)
-			.foregroundStyle(.secondary)
-
-			Spacer(minLength: 0)
+			.padding(20)
 		}
-		.padding(20)
-		.frame(width: 460, height: 430, alignment: .topLeading)
+		.frame(width: 480, height: 580, alignment: .topLeading)
+	}
+
+	private var favouritesSection: some View {
+		VStack(alignment: .leading, spacing: 8){
+			Text(NSLocalizedString("Pref.Favourites", value: "Favourite devices", comment: ""))
+				.font(.headline)
+			Text(NSLocalizedString("Pref.FavouritesHint", value: "Transfers from these devices are accepted automatically and silently — no notification is shown. You can also trust a device from its transfer notification with “Always Accept”.", comment: ""))
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+
+			if favourites.names.isEmpty{
+				Text(NSLocalizedString("Pref.NoFavourites", value: "No favourite devices yet.", comment: ""))
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+			}else{
+				ForEach(favourites.names, id: \.self){ name in
+					HStack(spacing: 8){
+						Image(systemName: "star.fill")
+							.foregroundStyle(.yellow)
+						Text(name)
+						Spacer(minLength: 8)
+						Button{
+							favourites.remove(name)
+						}label:{
+							Image(systemName: "trash")
+						}
+						.buttonStyle(.borderless)
+						.help(NSLocalizedString("Pref.RemoveFavourite", value: "Remove from favourites", comment: ""))
+					}
+				}
+			}
+
+			HStack(spacing: 8){
+				TextField(NSLocalizedString("Pref.AddFavouritePlaceholder", value: "Device name", comment: ""), text: $favourites.draftName)
+					.textFieldStyle(.roundedBorder)
+					.onSubmit(addFavourite)
+				Button(NSLocalizedString("Pref.Add", value: "Add", comment: ""), action: addFavourite)
+					.disabled(favourites.draftName.trimmingCharacters(in: .whitespaces).isEmpty)
+			}
+		}
+	}
+
+	private func addFavourite(){
+		if favourites.add(favourites.draftName){
+			favourites.draftName=""
+		}
 	}
 }
 

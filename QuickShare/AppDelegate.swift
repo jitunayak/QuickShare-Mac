@@ -40,6 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		}
 		let incomingTransfersCategory=UNNotificationCategory(identifier: "INCOMING_TRANSFERS", actions: [
 			UNNotificationAction(identifier: "ACCEPT", title: NSLocalizedString("Accept", comment: ""), options: []),
+			UNNotificationAction(identifier: "ACCEPT_ALWAYS", title: NSLocalizedString("AcceptAlways", value: "Always Accept", comment: ""), options: []),
 			UNNotificationAction(identifier: "DECLINE", title: NSLocalizedString("Decline", comment: ""))
 		], intentIdentifiers: [])
 		let infoCategory=UNNotificationCategory(identifier: "INFO", actions: [], intentIdentifiers: [])
@@ -242,6 +243,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	// MARK: - MainAppDelegate (receiving)
 
 	func obtainUserConsent(for transfer: TransferMetadata, from device: RemoteDeviceInfo) {
+		// Favourite devices are trusted: accept silently, with no notification.
+		if FavouritesStore.shared.isFavourite(device.name){
+			NearbyConnectionManager.shared.submitUserConsent(transferID: transfer.id, accept: true)
+			return
+		}
 		if AppSettings.shared.autoAccept{
 			NearbyConnectionManager.shared.submitUserConsent(transferID: transfer.id, accept: true)
 			postInfoNotification(title: NSLocalizedString("AutoAccepted.Title", value: "Transfer accepted", comment: ""), body: String(format: NSLocalizedString("AutoAccepted.Body", value: "Receiving from %@", comment: ""), device.name))
@@ -254,7 +260,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		content.body=description(for: transfer, from: device)
 		content.sound = .default
 		content.categoryIdentifier="INCOMING_TRANSFERS"
-		content.userInfo=["transferID": transfer.id]
+		content.userInfo=["transferID": transfer.id, "deviceName": device.name]
 		if #available(macOS 11.0, *){
 			NDNotificationCenterHackery.removeDefaultAction(content)
 		}
@@ -435,10 +441,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	}
 
 	func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-		if let transferID=response.notification.request.content.userInfo["transferID"] as? String{
-			NearbyConnectionManager.shared.submitUserConsent(transferID: transferID, accept: response.actionIdentifier=="ACCEPT")
-			if response.actionIdentifier != "ACCEPT"{
-				activeIncomingTransfers.removeValue(forKey: transferID)
+		let userInfo=response.notification.request.content.userInfo
+		if let transferID=userInfo["transferID"] as? String{
+			let action=response.actionIdentifier
+			if action=="ACCEPT_ALWAYS"{
+				if let deviceName=userInfo["deviceName"] as? String, !deviceName.isEmpty{
+					FavouritesStore.shared.add(deviceName)
+				}
+				NearbyConnectionManager.shared.submitUserConsent(transferID: transferID, accept: true)
+			}else{
+				NearbyConnectionManager.shared.submitUserConsent(transferID: transferID, accept: action=="ACCEPT")
+				if action != "ACCEPT"{
+					activeIncomingTransfers.removeValue(forKey: transferID)
+				}
 			}
 		}
 		completionHandler()
