@@ -1,8 +1,11 @@
 name: Build
 
+# Releases are cut from tags: pushing v1.2.0 builds the app, packages it as
+# QuickShare-1.2.0.dmg/.zip, and publishes them on a GitHub release. Pull
+# requests and manual runs build and upload the artifacts without releasing.
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -15,13 +18,25 @@ jobs:
     # The scripts build without Xcode, but a runner has Xcode anyway, which is
     # what makes the Swift toolchain and iconutil available.
     runs-on: macos-15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+
+      # A tag names the version: v1.2.0 packages as QuickShare-1.2.0.*
+      - name: Version from the tag
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
+          fi
 
       # make package builds build/QuickShare.app, then the .dmg and .zip that
       # are attached to a release, and prints their SHA-256 sums.
       - name: Build and package
-        run: make package
+        run: make package VERSION='${{ steps.version.outputs.version }}'
 
       - name: Upload the release artifacts
         uses: actions/upload-artifact@v4
@@ -31,3 +46,25 @@ jobs:
             build/QuickShare-*.dmg
             build/QuickShare-*.zip
           if-no-files-found: error
+
+  release:
+    name: Publish the release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: QuickShare
+          path: dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "QuickShare ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            dist/*

@@ -36,6 +36,20 @@ echo "==> Building protocol core (QuickShareKit)"
 (cd "$ROOT" && swift build)
 KIT="$(cd "$ROOT" && swift build --show-bin-path)"
 
+# Stage the bits the app needs in a directory of our own. SwiftPM's build
+# directory also holds clang module maps for its C targets (SwiftProtobuf and
+# friends), and in some toolchains they sit right where an -I path is searched:
+# the Swift compiler then reads them while it builds the bridging header, and
+# the build dies with "redefinition of module 'SwiftProtobuf'". The app imports
+# QuickShareKit, so all it needs is the Swift modules and the libraries.
+KIT_DIR="$BUILD/kit"
+rm -rf "$KIT_DIR"
+mkdir -p "$KIT_DIR"
+for module in "$KIT"/*.swiftmodule; do
+	cp -R "$module" "$KIT_DIR/"
+done
+cp "$KIT"/*.a "$KIT_DIR/"
+
 echo "==> Compiling Objective-C helper"
 mkdir -p "$BUILD"
 clang -c -fobjc-arc -mmacosx-version-min="$MIN_MACOS" -isysroot "$SDK" \
@@ -51,7 +65,7 @@ echo "==> Compiling and linking QuickShare"
 xcrun swiftc \
 	-sdk "$SDK" -target "$TARGET" -swift-version 5 \
 	-import-objc-header "$ROOT/QuickShare/QuickShare-Bridging-Header.h" \
-	-I "$KIT" -L "$KIT" \
+	-I "$KIT_DIR" -L "$KIT_DIR" \
 	-o "$APP/Contents/MacOS/QuickShare" \
 	"$ROOT/QuickShare/main.swift" \
 	"$ROOT/QuickShare/AppDelegate.swift" \
