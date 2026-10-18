@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the app
+    # The scripts build without Xcode, but a runner has Xcode anyway, which is
+    # what makes the Swift toolchain and iconutil available.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # make package builds build/QuickShare.app, then the .dmg and .zip that
+      # are attached to a release, and prints their SHA-256 sums.
+      - name: Build and package
+        run: make package
+
+      - name: Upload the release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickShare
+          path: |
+            build/QuickShare-*.dmg
+            build/QuickShare-*.zip
+          if-no-files-found: error
