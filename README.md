@@ -9,6 +9,10 @@ It is built on the public‑domain protocol core from
 leaves out — most importantly a proper **clipboard** story and a **PIN‑free**
 accept flow. See [NOTICE.md](NOTICE.md) for attribution.
 
+<p align="center">
+  <img src="docs/panel.png" width="344" alt="The QuickShare dropdown: QuickShare and this Mac at the top, a transfer in progress showing 9% of 2.6 GB with the rate, the time left and the file being sent, then Visible to everyone on this network, Send Clipboard to, Send Files to, History, Preferences, Open Received Files Folder and Quit QuickShare, each with an icon">
+</p>
+
 ## Download
 
 Grab the latest **`QuickShare-<version>.dmg`** from the
@@ -40,12 +44,18 @@ only the Xcode project builds; everything else, including *Send Files to ▸* an
 | Trusted devices | ✗ | **favourites auto‑accept silently, no notification** |
 | Sending files to Android | Finder → Share → app | Finder → Share, **or** menu bar → *Send Files to ▸ …* |
 | Sending the clipboard to Android | ✗ | **menu bar → *Send Clipboard to ▸ …*** |
+| Transfer progress | one bar for the transfer | **a line per file**, with the live rate and time left |
 | Recent transfer **history** | ✗ | **last 10 items, persisted across restarts** |
 | **Launch at login** | ✗ | optional toggle in Preferences (macOS 13+) |
 | QR code | ✓ | ✓ |
 
 ## Features
 
+- **A panel, not a bare list.** The dropdown opens with the app's name and this
+  Mac at the top, and every row carries an icon: sending, history, preferences,
+  the received‑files folder, quitting — and an **eye** that shows at a glance
+  whether the Mac is visible to the network. Devices are listed under *Send
+  Clipboard to ▸* and *Send Files to ▸* with an icon for their type.
 - **Received text goes to the clipboard.** Plain text messages are never written
   to disk; they land on your clipboard, and you get a notification with a
   preview.
@@ -59,17 +69,21 @@ only the Xcode project builds; everything else, including *Send Files to ▸* an
 - **Send your clipboard to Android.** Menu bar → *Send Clipboard to ▸* and pick a
   discovered device. URLs are advertised to Android as tappable links, other
   text as a text snippet.
-- **Live transfer progress in the menu.** Open the menu bar dropdown while files
-  are moving and each transfer gets its own card: the progress sweeps across it
-  behind *77% of 266.1 MB*, with the rate in Mbps, the estimated time left, and a
-  **×** to dismiss the card. Several transfers — sending and receiving alike — are
-  listed at once, with the file currently in flight and its position in the batch
-  (*photo.jpg (2 of 5)*). The menu bar itself shows the live rate — `523 Mbps` —
-  next to the icon, so you can watch a transfer without opening anything.
+- **Live transfer progress in the menu.** Open the dropdown while files are
+  moving and each transfer gets its own card: the progress sweeps across it
+  behind *77% of 266.1 MB*, with the rate in Mbps and the estimated time left. A
+  multi‑file share lists **one line per file**, each with its own thin bar — the
+  file in flight at full contrast, finished ones dimmed, the rest still waiting —
+  windowed around the current file with *N files done* / *N more files* standing
+  in for the ends of a long list. Several transfers, sending and receiving alike,
+  are listed at once, and each card has a **×** to dismiss it (the transfer
+  itself carries on). The menu bar shows the live rate — `523 Mbps` — next to
+  the icon, so you can watch a transfer without opening anything.
 - **Choose where received files are saved.** Preferences → *Received files* →
   *Choose…* points QuickShare at any folder; it remembers the choice across
   launches and falls back to **Downloads** if the folder is later moved or
-  deleted.
+  deleted. *Open Received Files Folder* in the menu bar opens whichever folder
+  that is.
 - **QR code** to make Android discover your Mac (handy on Samsung devices, see
   below).
 - **Transfer history.** The menu bar keeps the last **10** transfers (received
@@ -86,9 +100,10 @@ only the Xcode project builds; everything else, including *Send Files to ▸* an
   device straight from its transfer notification with **Always Accept**, or
   manage the list by name in Preferences.
 - **Hide from the network** (optional). Uncheck *Visible to other devices* in
-  Preferences (or in the menu bar) to stop advertising the Mac, so other devices
-  no longer see it or can send to it. You can still send files and the clipboard
-  from this Mac while hidden.
+  Preferences, or click the eye row in the dropdown — it then reads *Hidden from
+  other devices* — to stop advertising the Mac, so other devices no longer see
+  it or can send to it. You can still send files and the clipboard from this Mac
+  while hidden.
 
 Everything lives in the menu bar. There is no dock icon and no main window.
 
@@ -198,6 +213,7 @@ QuickShareKit/          Nearby Share protocol core (send + receive, clipboard)
 ShareExtension/         macOS Share extension used for "share files to Android"
 scripts/                Build, icon and packaging scripts (see below)
 docs/PROTOCOL.md        Notes on how the protocol works
+docs/panel.png          The screenshot above
 Package.swift           SwiftPM manifest for building QuickShareKit standalone
 ```
 
