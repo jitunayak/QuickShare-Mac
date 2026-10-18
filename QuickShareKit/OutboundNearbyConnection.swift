@@ -36,9 +36,12 @@ class OutboundNearbyConnection:NearbyConnection{
 	private var totalBytesToSend:Int64=0
 	private var totalBytesSent:Int64=0
 	/// Files this transfer will move, and how many have already finished, so
-	/// the UI can say "3 of 7".
+	/// the UI can say "3 of 7" and list each one.
 	private var totalFiles=0
 	private var filesCompleted=0
+	/// Every file in this transfer, in send order, kept for the whole transfer
+	/// so finished files can still be listed after they leave `queue`.
+	private var filePlan:[Sharing_Nearby_FileMetadata]=[]
 	private var cancelled:Bool=false
 	private var textPayloadID:Int64=0
 	
@@ -341,6 +344,7 @@ class OutboundNearbyConnection:NearbyConnection{
 				meta.payloadID=Int64.random(in: Int64.min...Int64.max)
 				queue.append(OutgoingFileTransfer(url: url, payloadID: meta.payloadID, handle: try FileHandle(forReadingFrom: url), totalBytes: meta.size, currentOffset: 0))
 				introduction.v1.introduction.fileMetadata.append(meta)
+				filePlan.append(meta)
 				totalBytesToSend+=meta.size
 				totalFiles+=1
 			}
@@ -384,6 +388,23 @@ class OutboundNearbyConnection:NearbyConnection{
 		try sendBytesPayload(data: Data(value.utf8), id: textPayloadID)
 		delegate?.outboundConnectionTransferFinished(connection: self)
 		try sendDisconnectionAndDisconnect()
+	}
+	
+	/// Per-file progress for the UI. Files go out one at a time in the order
+	/// they were queued, so anything before `filesCompleted` is done, that file
+	/// is the one being read, and the rest have not started.
+	private func fileProgress()->[TransferProgress.FileProgress]{
+		filePlan.enumerated().map{ index, meta in
+			let transferred:Int64
+			if index<filesCompleted{
+				transferred=meta.size
+			}else if index==filesCompleted, let current=currentTransfer{
+				transferred=current.currentOffset
+			}else{
+				transferred=0
+			}
+			return TransferProgress.FileProgress(name: meta.name, transferredBytes: transferred, totalBytes: meta.size)
+		}
 	}
 	
 	private func sendNextFileChunk() throws{
@@ -451,7 +472,8 @@ class OutboundNearbyConnection:NearbyConnection{
 			totalBytes: totalBytesToSend,
 			currentFileName: currentTransfer?.url.lastPathComponent,
 			filesTransferred: filesCompleted,
-			filesTotal: totalFiles))
+			filesTotal: totalFiles,
+			files: fileProgress()))
 		
 		if currentTransfer!.currentOffset==currentTransfer!.totalBytes{
 			// Signal end of file (yes, all this for one bit)

@@ -25,6 +25,10 @@ class InboundNearbyConnection: NearbyConnection{
 	
 	/// Where received files are written. `nil` means the Downloads folder.
 	private let destinationDirectory:URL?
+	/// Every file in this transfer, in the order the sender listed them, kept
+	/// for the whole transfer: files drop out of `transferredFiles` as they
+	/// finish, but the UI should still list them.
+	private var filePlan:[Sharing_Nearby_FileMetadata]=[]
 	
 	private var textPayloadID:Int64=0
 	private var plainTextPayloadIDs:Set<Int64>=[]
@@ -348,6 +352,7 @@ class InboundNearbyConnection: NearbyConnection{
 										  payloadID: file.payloadID,
 										  destinationURL: dest)
 				transferredFiles[file.payloadID]=info
+				filePlan.append(file)
 			}
 			let metadata=TransferMetadata(files: transferredFiles.map({$0.value.meta}), id: id, pinCode: nil)
 			DispatchQueue.main.async {
@@ -436,18 +441,26 @@ class InboundNearbyConnection: NearbyConnection{
 		}
 	}
 	
-	/// Cumulative progress across every file in this transfer, so the receiving
-	/// UI can show one bar even for a multi-file share.
+	/// Cumulative progress across every file in this transfer, plus each file
+	/// on its own so the receiving UI can list them.
 	private func notifyProgress(currentFile:String?=nil){
 		let total=transferredFiles.values.reduce(Int64(0), {$0+$1.meta.size})
 		let transferred=transferredFiles.values.reduce(Int64(0), {$0+$1.bytesTransferred})
 		let completed=transferredFiles.values.filter({$0.bytesTransferred>=$0.meta.size}).count
+		// A file that is no longer in `transferredFiles` has finished and been
+		// closed, so its full size counts as moved.
+		let files=filePlan.map{ meta in
+			TransferProgress.FileProgress(name: meta.name,
+			                              transferredBytes: transferredFiles[meta.payloadID]?.bytesTransferred ?? meta.size,
+			                              totalBytes: meta.size)
+		}
 		delegate?.connection(self, didProgressWith: TransferProgress(
 			transferredBytes: transferred,
 			totalBytes: total,
 			currentFileName: currentFile,
 			filesTransferred: completed,
-			filesTotal: transferredFiles.count))
+			filesTotal: transferredFiles.count,
+			files: files))
 	}
 	
 	private func deletePartiallyReceivedFiles() throws{

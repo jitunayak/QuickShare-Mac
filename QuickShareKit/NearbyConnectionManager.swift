@@ -202,6 +202,29 @@ public protocol ShareExtensionDelegate:AnyObject{
 /// Progress for a transfer in flight: how many bytes have moved, and which of
 /// the files is being worked on.
 public struct TransferProgress{
+	/// One file within a transfer, so the UI can list them individually
+	/// instead of only showing a total.
+	public struct FileProgress{
+		public let name:String
+		public let transferredBytes:Int64
+		public let totalBytes:Int64
+
+		public init(name:String, transferredBytes:Int64, totalBytes:Int64){
+			self.name=name
+			self.transferredBytes=transferredBytes
+			self.totalBytes=totalBytes
+		}
+
+		public var isComplete:Bool{
+			transferredBytes>=totalBytes
+		}
+
+		public var fraction:Double{
+			guard totalBytes>0 else {return 0}
+			return min(1, max(0, Double(transferredBytes)/Double(totalBytes)))
+		}
+	}
+
 	public let transferredBytes:Int64
 	public let totalBytes:Int64
 	/// The file currently being moved, if this transfer has any files.
@@ -209,13 +232,21 @@ public struct TransferProgress{
 	/// Files finished so far, and how many the transfer will move in total.
 	public let filesTransferred:Int
 	public let filesTotal:Int
+	/// Every file in the transfer, in the order the sender listed them. Files
+	/// move one at a time, so this is also the order they will finish in.
+	public let files:[FileProgress]
+	/// Where in `files` the file being moved sits, or `nil` when none is — the
+	/// first file that is not yet complete.
+	public let currentFileIndex:Int?
 
-	public init(transferredBytes:Int64, totalBytes:Int64, currentFileName:String?, filesTransferred:Int, filesTotal:Int){
+	public init(transferredBytes:Int64, totalBytes:Int64, currentFileName:String?, filesTransferred:Int, filesTotal:Int, files:[FileProgress]=[]){
 		self.transferredBytes=transferredBytes
 		self.totalBytes=totalBytes
 		self.currentFileName=currentFileName
 		self.filesTransferred=filesTransferred
 		self.filesTotal=filesTotal
+		self.files=files
+		self.currentFileIndex=files.firstIndex(where: {!$0.isComplete})
 	}
 }
 

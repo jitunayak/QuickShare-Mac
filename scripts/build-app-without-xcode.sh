@@ -88,8 +88,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<string>${BUILD_NUMBER}</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
-	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>

@@ -99,41 +99,56 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let menu=NSMenu()
 		menu.delegate=self
 
-		let visible=NSMenuItem(title: NSLocalizedString("VisibleToEveryone", value: "Visible to everyone on this network", comment: ""), action: #selector(toggleVisibility(_:)), keyEquivalent: "")
+		// The app's identity at the top, so the dropdown reads as QuickShare
+		// rather than a bare list of commands.
+		let header=NSMenuItem()
+		header.view=StatusMenuHeaderView(deviceName: Host.current().localizedName ?? "Mac")
+		menu.addItem(header)
+
+		let visible=NSMenuItem(title: "", action: #selector(toggleVisibility(_:)), keyEquivalent: "")
 		visible.target=self
-		visible.state=AppSettings.shared.visible ? .on : .off
 		menu.addItem(visible)
 		visibilityMenuItem=visible
 
-		let nameItem=NSMenuItem(title: String(format: NSLocalizedString("DeviceName", value: "This Mac: %@", comment: ""), Host.current().localizedName ?? "Mac"), action: nil, keyEquivalent: "")
-		nameItem.isEnabled=false
-		menu.addItem(nameItem)
-
-		// Live transfer cards go in here, between the device name and the
-		// separator, and are inserted on demand.
+		// Live transfer cards go in here, after the separator, and are inserted
+		// on demand.
 		menu.addItem(NSMenuItem.separator())
 
 		clipboardMenu=NSMenu()
 		let clipboardItem=NSMenuItem(title: NSLocalizedString("SendClipboard", value: "Send Clipboard to", comment: ""), action: nil, keyEquivalent: "")
+		MenuIcon.apply(clipboardItem, "doc.on.clipboard")
 		clipboardItem.submenu=clipboardMenu
 		menu.addItem(clipboardItem)
 
 		filesMenu=NSMenu()
 		let filesItem=NSMenuItem(title: NSLocalizedString("SendFiles", value: "Send Files to", comment: ""), action: nil, keyEquivalent: "")
+		MenuIcon.apply(filesItem, "paperplane")
 		filesItem.submenu=filesMenu
 		menu.addItem(filesItem)
 
 		historyMenu=NSMenu()
 		let historyItem=NSMenuItem(title: NSLocalizedString("History", value: "History", comment: ""), action: nil, keyEquivalent: "")
+		MenuIcon.apply(historyItem, "clock.arrow.circlepath")
 		historyItem.submenu=historyMenu
 		menu.addItem(historyItem)
 
 		menu.addItem(NSMenuItem.separator())
+
 		let prefsItem=NSMenuItem(title: NSLocalizedString("Preferences", value: "Preferences…", comment: ""), action: #selector(openPreferences(_:)), keyEquivalent: ",")
 		prefsItem.target=self
+		MenuIcon.apply(prefsItem, "gearshape")
 		menu.addItem(prefsItem)
+
+		let receivedFolderItem=NSMenuItem(title: NSLocalizedString("OpenReceivedFiles", value: "Open Received Files Folder", comment: ""), action: #selector(openReceivedFilesFolder(_:)), keyEquivalent: "")
+		receivedFolderItem.target=self
+		MenuIcon.apply(receivedFolderItem, "folder")
+		menu.addItem(receivedFolderItem)
+
 		menu.addItem(NSMenuItem.separator())
-		menu.addItem(NSMenuItem(title: NSLocalizedString("Quit", value: "Quit QuickShare", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+
+		let quitItem=NSMenuItem(title: NSLocalizedString("Quit", value: "Quit QuickShare", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+		MenuIcon.apply(quitItem, "power")
+		menu.addItem(quitItem)
 
 		statusItem=NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 		let icon=NSImage(named: "MenuBarIcon")
@@ -145,6 +160,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		statusItem?.button?.toolTip="QuickShare"
 		statusItem?.menu=menu
 		statusItem?.behavior = .removalAllowed
+
+		updateVisibilityMenuState()
+	}
+
+	private func deviceSymbol(for type:RemoteDeviceInfo.DeviceType)->String{
+		switch type{
+		case .phone:
+			return "iphone"
+		case .tablet:
+			return "ipad"
+		case .computer:
+			return "laptopcomputer"
+		case .unknown:
+			return "questionmark.circle"
+		}
+	}
+
+	@objc private func openReceivedFilesFolder(_ sender:Any?){
+		NSWorkspace.shared.open(ReceivedFiles.directory)
 	}
 
 	private func populateDeviceMenu(_ menu:NSMenu, selector:Selector){
@@ -152,6 +186,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let devices=NearbyConnectionManager.shared.discoveredDevices
 		if devices.isEmpty{
 			let item=NSMenuItem(title: NSLocalizedString("NoDevices", value: "No devices found…", comment: ""), action: nil, keyEquivalent: "")
+			MenuIcon.apply(item, "magnifyingglass")
 			item.isEnabled=false
 			menu.addItem(item)
 			return
@@ -160,6 +195,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 			let item=NSMenuItem(title: device.name, action: selector, keyEquivalent: "")
 			item.representedObject=device.id
 			item.target=self
+			// The icon says what kind of device it is at a glance, which matters
+			// when a phone and a tablet share a name.
+			MenuIcon.apply(item, deviceSymbol(for: device.type))
 			menu.addItem(item)
 		}
 	}
@@ -320,7 +358,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 	}
 
 	private func updateVisibilityMenuState(){
-		visibilityMenuItem?.state=AppSettings.shared.visible ? .on : .off
+		let visible=AppSettings.shared.visible
+		// The eye carries the state instead of a checkmark: with an icon on the
+		// row anyway, a tick would just be a second, redundant mark.
+		visibilityMenuItem?.image=MenuIcon.symbol(visible ? "eye" : "eye.slash")
+		visibilityMenuItem?.title = visible
+			? NSLocalizedString("VisibleToEveryone", value: "Visible to everyone on this network", comment: "")
+			: NSLocalizedString("HiddenFromOthers", value: "Hidden from other devices", comment: "")
 	}
 
 	// MARK: - Outgoing transfer events
@@ -446,6 +490,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let items=HistoryStore.shared.items
 		if items.isEmpty{
 			let empty=NSMenuItem(title: NSLocalizedString("History.Empty", value: "No recent transfers", comment: ""), action: nil, keyEquivalent: "")
+			MenuIcon.apply(empty, "clock")
 			empty.isEnabled=false
 			historyMenu.addItem(empty)
 			return
@@ -455,12 +500,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 			menuItem.representedObject=item.id.uuidString
 			menuItem.target=self
 			menuItem.toolTip=historyTooltip(for: item)
-			menuItem.image=NSImage(systemSymbolName: historySymbol(for: item.kind), accessibilityDescription: nil)
+			MenuIcon.apply(menuItem, historySymbol(for: item.kind))
 			historyMenu.addItem(menuItem)
 		}
 		historyMenu.addItem(NSMenuItem.separator())
 		let clear=NSMenuItem(title: NSLocalizedString("History.Clear", value: "Clear History", comment: ""), action: #selector(clearHistory(_:)), keyEquivalent: "")
 		clear.target=self
+		MenuIcon.apply(clear, "trash")
 		historyMenu.addItem(clear)
 	}
 
@@ -647,6 +693,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		}else if result==NSApplication.ModalResponse.alertSecondButtonReturn{
 			NSApplication.shared.terminate(nil)
 		}
+	}
+}
+
+// MARK: - Menu header
+
+/// The top of the dropdown: the app's identity, so the menu reads as QuickShare
+/// rather than a bare list of commands.
+final class StatusMenuHeaderView:NSView{
+	/// The width the panel has settled on, so the header does not make the menu
+	/// change width as transfers come and go.
+	static let width:CGFloat=MenuMetrics.panelWidth
+
+	private static let height:CGFloat=48
+	/// Small enough to sit in the space left of the title column, so the app
+	/// name lines up with the rows underneath.
+	private static let iconSize:CGFloat=22
+
+	override var isFlipped:Bool{
+		return true
+	}
+
+	init(deviceName:String){
+		super.init(frame: NSRect(x: 0, y: 0, width: StatusMenuHeaderView.width, height: StatusMenuHeaderView.height))
+
+		let size=StatusMenuHeaderView.iconSize
+		let icon=NSImageView()
+		icon.image=NSImage(named: "AppIcon") ?? NSApp.applicationIconImage
+		icon.imageScaling = .scaleProportionallyUpOrDown
+		// Centred on the column the menu puts its own row icons in.
+		icon.frame=NSRect(x: max(0, MenuMetrics.textInset-size-4), y: (StatusMenuHeaderView.height-size)/2,
+		                  width: size, height: size)
+		addSubview(icon)
+
+		let textX=MenuMetrics.textInset
+		let textWidth=max(0, StatusMenuHeaderView.width-textX-MenuMetrics.textInset)
+
+		let title=NSTextField(labelWithString: "QuickShare")
+		title.font = .systemFont(ofSize: 13, weight: .semibold)
+		title.lineBreakMode = .byTruncatingTail
+		title.frame=NSRect(x: textX, y: 10, width: textWidth, height: 16)
+		addSubview(title)
+
+		let subtitle=NSTextField(labelWithString: deviceName)
+		subtitle.font = .systemFont(ofSize: 11)
+		subtitle.textColor = .secondaryLabelColor
+		subtitle.lineBreakMode = .byTruncatingTail
+		subtitle.frame=NSRect(x: textX, y: 26, width: textWidth, height: 14)
+		addSubview(subtitle)
+	}
+
+	required init?(coder:NSCoder){
+		fatalError("not supported")
 	}
 }
 
