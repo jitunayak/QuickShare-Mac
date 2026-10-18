@@ -162,6 +162,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		statusItem?.behavior = .removalAllowed
 
 		updateVisibilityMenuState()
+		// Every row has its icon now, so the column they put their titles in can
+		// be measured from them; the cards and the header follow it.
+		MenuMetrics.measure(in: menu)
 	}
 
 	private func deviceSymbol(for type:RemoteDeviceInfo.DeviceType)->String{
@@ -361,7 +364,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 		let visible=AppSettings.shared.visible
 		// The eye carries the state instead of a checkmark: with an icon on the
 		// row anyway, a tick would just be a second, redundant mark.
-		visibilityMenuItem?.image=MenuIcon.symbol(visible ? "eye" : "eye.slash")
+		if let item=visibilityMenuItem{
+			MenuIcon.apply(item, visible ? "eye" : "eye.slash")
+		}
 		visibilityMenuItem?.title = visible
 			? NSLocalizedString("VisibleToEveryone", value: "Visible to everyone on this network", comment: "")
 			: NSLocalizedString("HiddenFromOthers", value: "Hidden from other devices", comment: "")

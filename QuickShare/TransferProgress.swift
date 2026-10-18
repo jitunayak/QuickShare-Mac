@@ -101,38 +101,75 @@ enum MenuIcon{
 /// whether the rows carry icons - so measure it on the running system rather
 /// than hardcoding a number that would quietly drift.
 enum MenuMetrics{
-	/// Where a title starts in a row that has an icon, which is what the card
-	/// text and the header line up with.
-	static let textInset:CGFloat=measureTextInset()
-
 	/// The width the panel is worth having: enough for the longest row plus its
 	/// icon, and enough for a transfer card to breathe.
 	static let panelWidth:CGFloat=320
 
-	private static func measureTextInset()->CGFloat{
+	/// Where a title starts in a row that has an icon, which is what the card
+	/// text and the header line up with.
+	///
+	/// This is not a documented constant. A menu reserves one column for item
+	/// images, as wide as the widest icon in that menu, and pads either side of
+	/// the title; both the column and the padding vary with the menu style and
+	/// with the symbols used. So rather than hardcode a number that would drift,
+	/// measure it on the running system — from the icons the panel's own rows
+	/// carry, which `measure(in:)` collects once the menu has been built.
+	static var textInset:CGFloat{
+		measuredInset ?? textInset(forImages: [MenuIcon.symbol("eye")].compactMap {$0})
+	}
+
+	/// Measures the column from a menu's own items. Call once the rows and their
+	/// icons are in place.
+	static func measure(in menu:NSMenu){
+		measuredInset=textInset(forImages: menu.items.compactMap {$0.image})
+	}
+
+	private static var measuredInset:CGFloat?
+
+	/// The title column for a set of icons: a menu sets aside room for its
+	/// widest icon, and a row without one gets no column at all.
+	private static func textInset(forImages images:[NSImage])->CGFloat{
+		let column=min(images.map(iconColumn(for:)).max() ?? 0, maxColumn)
+		return column+padding()
+	}
+
+	/// A menu draws item images in a box of its own choosing — measured at 16
+	/// points here, whatever size the symbol asks for — with a small gap after
+	/// it. A symbol wider than the box, like the eye, is drawn scaled down
+	/// inside it and does not push the titles any further in, so the column the
+	/// icons add tops out here.
+	private static let maxColumn:CGFloat=20
+
+	/// The space a menu leaves on either side of a title, when the row has no
+	/// icon.
+	private static func padding()->CGFloat{
 		let title="Mg"
 		let textWidth=ceil((title as NSString).size(withAttributes: [.font: NSFont.menuFont(ofSize: 0)]).width)
+		let plain=menuWidth(title: title, image: nil)
+		// Whatever is left of the row once the title is in it, halved.
+		return max(0, (plain-textWidth)/2)
+	}
 
-		// The same title with and without an icon: the difference is the column
-		// the menu sets aside for item images.
-		func menuWidth(icon:Bool)->CGFloat{
-			let menu=NSMenu()
-			let item=NSMenuItem(title: title, action: nil, keyEquivalent: "")
-			if icon{
-				MenuIcon.apply(item, "doc.on.clipboard")
+	/// How much room an icon takes up in the title column: the width it adds to
+	/// a one-item menu.
+	private static func iconColumn(for image:NSImage)->CGFloat{
+		let title="Mg"
+		return max(0, menuWidth(title: title, image: image)-menuWidth(title: title, image: nil))
+	}
+
+	private static func menuWidth(title:String, image:NSImage?)->CGFloat{
+		let menu=NSMenu()
+		let item=NSMenuItem(title: title, action: nil, keyEquivalent: "")
+		if let image=image{
+			item.image=image
+			// Measure the menu as the panel asks it to be drawn, icons included.
+			if #available(macOS 27.0, *){
+				item.preferredImageVisibility = .visible
 			}
-			menu.addItem(item)
-			menu.update()
-			return menu.size.width
 		}
-		let plain=menuWidth(icon: false)
-		let iconed=menuWidth(icon: true)
-		let iconColumn=max(0, iconed-plain)
-		// Whatever is left over is padding, split either side of the title.
-		// (Measured against the drawn position on macOS 27: an item with an
-		// icon puts its title at 36, which is this column plus this padding.)
-		let padding=max(0, (plain-textWidth)/2)
-		return iconColumn+padding
+		menu.addItem(item)
+		menu.update()
+		return menu.size.width
 	}
 }
 
