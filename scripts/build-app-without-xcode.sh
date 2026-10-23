@@ -41,14 +41,22 @@ KIT="$(cd "$ROOT" && swift build --show-bin-path)"
 # friends), and in some toolchains they sit right where an -I path is searched:
 # the Swift compiler then reads them while it builds the bridging header, and
 # the build dies with "redefinition of module 'SwiftProtobuf'". The app imports
-# QuickShareKit, so all it needs is the Swift modules and the libraries.
+# QuickShareKit, so all it needs is the Swift modules and the libraries. They
+# live in the build directory itself on newer toolchains and in a Modules/
+# subdirectory on older ones.
 KIT_DIR="$BUILD/kit"
 rm -rf "$KIT_DIR"
 mkdir -p "$KIT_DIR"
-for module in "$KIT"/*.swiftmodule; do
-	cp -R "$module" "$KIT_DIR/"
+for module in "$KIT"/*.swiftmodule "$KIT"/Modules/*.swiftmodule; do
+	if [ -e "$module" ]; then
+		cp -R "$module" "$KIT_DIR/"
+	fi
 done
 cp "$KIT"/*.a "$KIT_DIR/"
+if [ -z "$(ls -A "$KIT_DIR")" ]; then
+	echo "error: found no Swift modules in $KIT" >&2
+	exit 1
+fi
 
 echo "==> Compiling Objective-C helper"
 mkdir -p "$BUILD"
